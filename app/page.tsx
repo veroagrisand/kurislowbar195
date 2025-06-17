@@ -16,7 +16,6 @@ import {
   ArrowRight,
   Instagram,
   Facebook,
-  Mail,
   Search,
 } from "lucide-react"
 import { motion } from "framer-motion"
@@ -293,10 +292,12 @@ export default function LandingPage() {
                       <br />
                       Indonesia
                     </p>
+                    <Link href="https://maps.app.goo.gl/2RkhjpzRBMwg1Yku8">
                     <Button variant="outline" size="sm" className="button-press">
                       <MapPin className="mr-2 h-4 w-4" />
                       View on Maps
                     </Button>
+                    </Link>
                   </>
                 ),
               },
@@ -328,8 +329,7 @@ export default function LandingPage() {
                         <span className="font-mono">+62 822 4604 8185</span>
                       </div>
                       <div className="flex items-center justify-center">
-                        <Mail className="inline h-4 w-4 mr-2" />
-                        <span>info@kuricoffee195.com</span>
+                        
                       </div>
                     </div>
                     <div className="flex justify-center gap-3">
@@ -652,7 +652,6 @@ export default function LandingPage() {
                   <span className="font-mono">+62 822 4604 8185</span>
                 </li>
                 <li className="flex items-center">
-                  <Mail className="h-4 w-4 mr-2" />
                   
                 </li>
               </ul>

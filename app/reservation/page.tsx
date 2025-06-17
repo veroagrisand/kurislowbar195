@@ -180,7 +180,7 @@ export default function ReservationPage() {
               Table Reservation
             </CardTitle>
             <CardDescription className="text-sm sm:text-base">
-              Book your table and select your preferred coffee blend
+              Book your table and select your preferred coffee beans
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -297,7 +297,7 @@ export default function ReservationPage() {
                 </Label>
                 <Select value={formData.coffee} onValueChange={(value) => setFormData({ ...formData, coffee: value })}>
                   <SelectTrigger className="text-sm sm:text-base">
-                    <SelectValue placeholder="Choose your coffee blend" />
+                    <SelectValue placeholder="Choose your coffee" />
                   </SelectTrigger>
                   <SelectContent>
                     {coffeeOptions.map((coffee) => (
