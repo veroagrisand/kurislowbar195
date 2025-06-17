@@ -345,6 +345,7 @@ export default function PaymentPage() {
                     <li>3. Scan the QR code above</li>
                     <li>4. Confirm the payment amount</li>
                     <li>5. Complete the transaction</li>
+                    <li>6. Dont forget to take a screenshot for proof</li>
                   </ol>
                 </div>
                 <p className="text-xs text-muted-foreground">

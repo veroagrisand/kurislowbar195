@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import Link from "next/link"
 import {
   Coffee,
   MapPin,
@@ -144,7 +145,7 @@ export default function LandingPage() {
             className="mb-6"
           >
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 text-balance leading-tight">
-              Kuri Coffee
+              Kuri
               <span className="block text-coffee-400">Slow Bar 195</span>
             </h1>
             <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-200 text-balance max-w-3xl mx-auto">
@@ -286,9 +287,9 @@ export default function LandingPage() {
                 content: (
                   <>
                     <p className="text-muted-foreground mb-4">
-                      Jl. Raya No. 195
+                      Jl. S. Parman No.195
                       <br />
-                      Padang, West Sumatra
+                      Ulak Karang Utara, Kec. Padang Utara, Kota Padang, Sumatera Barat 25173
                       <br />
                       Indonesia
                     </p>
@@ -306,12 +307,8 @@ export default function LandingPage() {
                   <>
                     <div className="space-y-2 text-muted-foreground mb-4">
                       <div className="flex justify-between">
-                        <span>Monday - Friday</span>
-                        <span className="font-mono">09:00 - 22:00</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Saturday - Sunday</span>
-                        <span className="font-mono">08:00 - 23:00</span>
+                        <span>Monday - Sunday</span>
+                        <span className="font-mono">09:00 - 21:00</span>
                       </div>
                     </div>
                     <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
@@ -328,7 +325,7 @@ export default function LandingPage() {
                     <div className="space-y-3 text-muted-foreground mb-4">
                       <div className="flex items-center justify-center">
                         <Phone className="inline h-4 w-4 mr-2" />
-                        <span className="font-mono">+62 812-3456-7890</span>
+                        <span className="font-mono">+62 822 4604 8185</span>
                       </div>
                       <div className="flex items-center justify-center">
                         <Mail className="inline h-4 w-4 mr-2" />
@@ -337,14 +334,18 @@ export default function LandingPage() {
                     </div>
                     <div className="flex justify-center gap-3">
                       <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                      <Link href="https://www.instagram.com/kuri_slowbar195/">
                         <Button size="sm" variant="outline" className="button-press">
                           <Instagram className="h-4 w-4" />
                         </Button>
+                      </Link>
                       </motion.div>
                       <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                      <Link href="">
                         <Button size="sm" variant="outline" className="button-press">
                           <Facebook className="h-4 w-4" />
                         </Button>
+                      </Link>
                       </motion.div>
                     </div>
                   </>
@@ -609,13 +610,15 @@ export default function LandingPage() {
               </p>
               <div className="flex gap-3">
                 <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                <Link href="https://www.instagram.com/kuri_slowbar195/">
                   <Button size="sm" variant="outline" className="button-press">
                     <Instagram className="h-4 w-4" />
                   </Button>
+                </Link>
                 </motion.div>
                 <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                   <Button size="sm" variant="outline" className="button-press">
-                    <Facebook className="h-4 w-4" />
+                    <Facebook className="h-4 w-4"  />
                   </Button>
                 </motion.div>
               </div>
@@ -642,15 +645,15 @@ export default function LandingPage() {
               <ul className="space-y-2 text-muted-foreground">
                 <li className="flex items-center">
                   <MapPin className="h-4 w-4 mr-2" />
-                  Jl. Raya No. 195, Padang
+                  Jl. S. Parman No.195, Ulak Karang Utara, Kec. Padang Utara, Kota Padang, Sumatera Barat 25173
                 </li>
                 <li className="flex items-center">
                   <Phone className="h-4 w-4 mr-2" />
-                  <span className="font-mono">+62 812-3456-7890</span>
+                  <span className="font-mono">+62 822 4604 8185</span>
                 </li>
                 <li className="flex items-center">
                   <Mail className="h-4 w-4 mr-2" />
-                  info@kuricoffee195.com
+                  
                 </li>
               </ul>
             </motion.div>
@@ -659,12 +662,8 @@ export default function LandingPage() {
               <h4 className="font-semibold mb-4">Opening Hours</h4>
               <ul className="space-y-2 text-muted-foreground">
                 <li className="flex justify-between">
-                  <span>Mon - Fri:</span>
-                  <span className="font-mono">09:00 - 22:00</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Sat - Sun:</span>
-                  <span className="font-mono">08:00 - 23:00</span>
+                  <span>Mon - Sun:</span>
+                  <span className="font-mono">09:00 - 21:00</span>
                 </li>
               </ul>
             </motion.div>
@@ -677,7 +676,8 @@ export default function LandingPage() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="border-t border-border mt-8 pt-8 text-center text-muted-foreground"
           >
-            <p>&copy; 2024 Kuri Coffee Slow Bar 195. All rights reserved.</p>
+            <p>&copy; 2025 Kuri Coffee Slow Bar 195. All rights reserved.</p>
+            <p>PerrrSPACE.id</p>
           </motion.div>
         </div>
       </footer>
