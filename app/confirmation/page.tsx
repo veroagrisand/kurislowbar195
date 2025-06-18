@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageWrapper } from "@/components/page-wrapper"
 import { AnimatedCard } from "@/components/animated-card"
+import { toast } from "sonner"
 
 interface Reservation {
   id: number
@@ -49,30 +50,53 @@ export default function ConfirmationPage() {
   const searchParams = useSearchParams()
   const [reservation, setReservation] = useState<Reservation | null>(null)
 
+  const fetchReservation = async (id: string) => {
+    try {
+      const response = await fetch(`/api/reservations/${id}`)
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          // Reservation not found, redirect to home with message
+          toast({
+            title: "Reservation Not Found",
+            description: "The reservation you're looking for doesn't exist or has been removed.",
+            variant: "destructive",
+          })
+          router.push("/")
+          return
+        }
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      setReservation(data.reservation)
+    } catch (error) {
+      console.error("Error fetching reservation:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load reservation details. Redirecting to home page.",
+        variant: "destructive",
+      })
+      // Redirect to home page after a short delay
+      setTimeout(() => {
+        router.push("/")
+      }, 2000)
+    }
+  }
+
   useEffect(() => {
     const reservationId = searchParams.get("id")
     if (!reservationId) {
+      toast({
+        title: "Missing Reservation ID",
+        description: "No reservation ID provided. Redirecting to home page.",
+        variant: "destructive",
+      })
       router.push("/")
       return
     }
     fetchReservation(reservationId)
   }, [router, searchParams])
-
-  const fetchReservation = async (id: string) => {
-    try {
-      const response = await fetch(`/api/reservations/${id}`)
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch reservation")
-      }
-
-      setReservation(data.reservation)
-    } catch (error) {
-      console.error("Error fetching reservation:", error)
-      router.push("/")
-    }
-  }
 
   if (!reservation) {
     return (
@@ -81,14 +105,18 @@ export default function ConfirmationPage() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5 }}
-          className="text-center"
+          className="text-center max-w-md mx-auto p-6"
         >
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
             className="loading-shimmer w-8 h-8 rounded-full mx-auto mb-4"
           />
-          <p>Loading confirmation details...</p>
+          <h2 className="text-xl font-semibold mb-2">Loading Confirmation</h2>
+          <p className="text-muted-foreground mb-4">Please wait while we fetch your reservation details...</p>
+          <Button variant="outline" onClick={() => router.push("/")} className="button-press">
+            Return to Home
+          </Button>
         </motion.div>
       </PageWrapper>
     )
