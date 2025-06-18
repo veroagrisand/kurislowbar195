@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createReservation, getCoffeeOptions, canMakeReservation } from "@/lib/db"
+import { createReservation, getCoffeeOptions } from "@/lib/db"
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,19 +9,6 @@ export async function POST(request: NextRequest) {
     const { name, phone, date, time, people, coffee } = body
     if (!name || !phone || !date || !time || !people || !coffee) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
-
-    // Check if reservation can be made (availability check)
-    const availabilityCheck = await canMakeReservation(date, time, Number.parseInt(people))
-
-    if (!availabilityCheck.canBook) {
-      return NextResponse.json(
-        {
-          error: availabilityCheck.message || "Cannot make reservation for this time slot",
-          availableSpots: availabilityCheck.availableSpots,
-        },
-        { status: 400 },
-      )
     }
 
     // Get coffee options to validate selection and get price

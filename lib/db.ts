@@ -38,12 +38,6 @@ export interface CoffeeOption {
   updated_at: string
 }
 
-export interface TimeSlotAvailability {
-  time: string
-  available_spots: number
-  is_available: boolean
-}
-
 // Database functions
 export async function getCoffeeOptions(): Promise<CoffeeOption[]> {
   const result = await sql`
@@ -166,90 +160,5 @@ export async function getReservationStats() {
     today: Number(todayReservations[0].count),
     revenue: Number(totalRevenue[0].revenue),
     pending: Number(pendingReservations[0].count),
-  }
-}
-
-// New function to check time slot availability
-export async function getTimeSlotAvailability(date: string): Promise<TimeSlotAvailability[]> {
-  const timeSlots = [
-    "09:00",
-    "10:00",
-    "11:00",
-    "12:00",
-    "13:00",
-    "14:00",
-    "15:00",
-    "16:00",
-    "17:00",
-    "18:00",
-    "19:00",
-    "20:00",
-  ]
-
-  // Get current reservations for the date (excluding cancelled reservations)
-  const reservations = await sql`
-    SELECT time, SUM(people) as total_people
-    FROM reservations 
-    WHERE date = ${date} AND status != 'cancelled'
-    GROUP BY time
-  `
-
-  const reservationMap = new Map<string, number>()
-  reservations.forEach((res: any) => {
-    reservationMap.set(res.time, Number(res.total_people))
-  })
-
-  return timeSlots.map((time) => {
-    const bookedPeople = reservationMap.get(time) || 0
-    const availableSpots = Math.max(0, 5 - bookedPeople)
-
-    return {
-      time,
-      available_spots: availableSpots,
-      is_available: availableSpots > 0,
-    }
-  })
-}
-
-// New function to check if a reservation can be made
-export async function canMakeReservation(
-  date: string,
-  time: string,
-  people: number,
-): Promise<{
-  canBook: boolean
-  availableSpots: number
-  message?: string
-}> {
-  const availability = await getTimeSlotAvailability(date)
-  const timeSlot = availability.find((slot) => slot.time === time)
-
-  if (!timeSlot) {
-    return {
-      canBook: false,
-      availableSpots: 0,
-      message: "Invalid time slot",
-    }
-  }
-
-  if (!timeSlot.is_available) {
-    return {
-      canBook: false,
-      availableSpots: timeSlot.available_spots,
-      message: "This time slot is fully booked",
-    }
-  }
-
-  if (people > timeSlot.available_spots) {
-    return {
-      canBook: false,
-      availableSpots: timeSlot.available_spots,
-      message: `Only ${timeSlot.available_spots} spots available for this time slot`,
-    }
-  }
-
-  return {
-    canBook: true,
-    availableSpots: timeSlot.available_spots,
   }
 }
