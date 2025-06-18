@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Calendar, Clock, Users, Coffee, CreditCard } from "lucide-react"
+import { Calendar, Clock, Users, Coffee, CreditCard, AlertCircle } from "lucide-react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { PageWrapper } from "@/components/page-wrapper"
 import { AnimatedCard } from "@/components/animated-card"
@@ -22,20 +24,11 @@ interface CoffeeOption {
   description?: string
 }
 
-const timeSlots = [
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-  "18:00",
-  "19:00",
-  "20:00",
-]
+interface TimeSlotAvailability {
+  time: string
+  available_spots: number
+  is_available: boolean
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -62,7 +55,9 @@ export default function ReservationPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [coffeeOptions, setCoffeeOptions] = useState<CoffeeOption[]>([])
+  const [timeSlots, setTimeSlots] = useState<TimeSlotAvailability[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingTimeSlots, setLoadingTimeSlots] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -77,6 +72,14 @@ export default function ReservationPage() {
   useEffect(() => {
     fetchCoffeeOptions()
   }, [])
+
+  useEffect(() => {
+    if (formData.date) {
+      fetchTimeSlots(formData.date)
+    } else {
+      setTimeSlots([])
+    }
+  }, [formData.date])
 
   const fetchCoffeeOptions = async () => {
     try {
@@ -93,6 +96,40 @@ export default function ReservationPage() {
     }
   }
 
+  const fetchTimeSlots = async (date: string) => {
+    setLoadingTimeSlots(true)
+    try {
+      const response = await fetch(`/api/time-slots?date=${date}`)
+      const data = await response.json()
+
+      if (response.ok) {
+        setTimeSlots(data.availability)
+
+        // If currently selected time is no longer available, clear it
+        if (formData.time) {
+          const selectedSlot = data.availability.find((slot: TimeSlotAvailability) => slot.time === formData.time)
+          if (!selectedSlot?.is_available || selectedSlot.available_spots < Number.parseInt(formData.people || "1")) {
+            setFormData((prev) => ({ ...prev, time: "" }))
+            toast({
+              title: "Time slot unavailable",
+              description: "Your selected time slot is no longer available. Please choose another time.",
+              variant: "destructive",
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching time slots:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load time slot availability",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingTimeSlots(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -102,6 +139,18 @@ export default function ReservationPage() {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      setLoading(false)
+      return
+    }
+
+    // Check if selected time slot is still available
+    const selectedSlot = timeSlots.find((slot) => slot.time === formData.time)
+    if (!selectedSlot?.is_available || selectedSlot.available_spots < Number.parseInt(formData.people)) {
+      toast({
+        title: "Time slot unavailable",
+        description: "This time slot is no longer available. Please refresh and choose another time.",
         variant: "destructive",
       })
       setLoading(false)
@@ -139,6 +188,11 @@ export default function ReservationPage() {
         description: error instanceof Error ? error.message : "Failed to create reservation",
         variant: "destructive",
       })
+
+      // Refresh time slots in case availability changed
+      if (formData.date) {
+        fetchTimeSlots(formData.date)
+      }
     } finally {
       setLoading(false)
     }
@@ -146,6 +200,19 @@ export default function ReservationPage() {
 
   const selectedCoffee = coffeeOptions.find((c) => c.id === formData.coffee)
   const totalAmount = selectedCoffee ? selectedCoffee.price * Number.parseInt(formData.people || "1") : 0
+
+  const getTimeSlotDisplay = (slot: TimeSlotAvailability) => {
+    if (!slot.is_available) {
+      return `${slot.time} - Fully Booked`
+    }
+    return `${slot.time} - ${slot.available_spots} spots left`
+  }
+
+  const isTimeSlotDisabled = (slot: TimeSlotAvailability) => {
+    if (!slot.is_available) return true
+    if (!formData.people) return false
+    return slot.available_spots < Number.parseInt(formData.people)
+  }
 
   return (
     <PageWrapper className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -184,6 +251,14 @@ export default function ReservationPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <Alert className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Booking Policy:</strong> Each time slot can accommodate maximum 5 people total. Once a time slot
+                reaches capacity, it will be unavailable for booking.
+              </AlertDescription>
+            </Alert>
+
             <motion.form
               variants={containerVariants}
               initial="hidden"
@@ -244,29 +319,11 @@ export default function ReservationPage() {
                     id="date"
                     type="date"
                     value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value, time: "" })}
                     min={new Date().toISOString().split("T")[0]}
                     required
                     className="text-sm sm:text-base"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="time" className="flex items-center gap-2 text-sm sm:text-base">
-                    <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                    Time *
-                  </Label>
-                  <Select value={formData.time} onValueChange={(value) => setFormData({ ...formData, time: value })}>
-                    <SelectTrigger className="text-sm sm:text-base">
-                      <SelectValue placeholder="Select time" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {timeSlots.map((time) => (
-                        <SelectItem key={time} value={time} className="text-sm sm:text-base">
-                          {time}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="people" className="flex items-center gap-2 text-sm sm:text-base">
@@ -275,15 +332,54 @@ export default function ReservationPage() {
                   </Label>
                   <Select
                     value={formData.people}
-                    onValueChange={(value) => setFormData({ ...formData, people: value })}
+                    onValueChange={(value) => setFormData({ ...formData, people: value, time: "" })}
                   >
                     <SelectTrigger className="text-sm sm:text-base">
                       <SelectValue placeholder="Number" />
                     </SelectTrigger>
                     <SelectContent>
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+                      {[1, 2, 3, 4, 5].map((num) => (
                         <SelectItem key={num} value={num.toString()} className="text-sm sm:text-base">
                           {num} {num === 1 ? "person" : "people"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="time" className="flex items-center gap-2 text-sm sm:text-base">
+                    <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+                    Time *
+                  </Label>
+                  <Select
+                    value={formData.time}
+                    onValueChange={(value) => setFormData({ ...formData, time: value })}
+                    disabled={!formData.date || !formData.people || loadingTimeSlots}
+                  >
+                    <SelectTrigger className="text-sm sm:text-base">
+                      <SelectValue placeholder={loadingTimeSlots ? "Loading..." : "Select time"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeSlots.map((slot) => (
+                        <SelectItem
+                          key={slot.time}
+                          value={slot.time}
+                          className="text-sm sm:text-base"
+                          disabled={isTimeSlotDisabled(slot)}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span>{getTimeSlotDisplay(slot)}</span>
+                            {!slot.is_available && (
+                              <Badge variant="destructive" className="ml-2 text-xs">
+                                Full
+                              </Badge>
+                            )}
+                            {slot.is_available && slot.available_spots <= 2 && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                Limited
+                              </Badge>
+                            )}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -356,7 +452,7 @@ export default function ReservationPage() {
                     type="submit"
                     className="w-full button-press text-sm sm:text-base"
                     size="lg"
-                    disabled={loading}
+                    disabled={loading || loadingTimeSlots}
                   >
                     <CreditCard className="mr-2 h-4 w-4" />
                     {loading ? "Creating Reservation..." : "Proceed to Payment"}
