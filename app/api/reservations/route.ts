@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createReservation, getCoffeeOptions, canMakeReservation } from "@/lib/db"
-import { Resend } from "resend"
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,36 +47,49 @@ export async function POST(request: NextRequest) {
       notes: body.notes || null,
     })
 
-    // --- Email Sending Logic ---
+    // --- Email Sending Logic via Cloudflare Worker ---
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY) // Initialize Resend with your API key
+      const cloudflareWorkerUrl = process.env.CLOUDFLARE_EMAIL_WORKER_URL
+      if (!cloudflareWorkerUrl) {
+        console.warn("CLOUDFLARE_EMAIL_WORKER_URL is not set. Skipping email sending.")
+      } else {
+        const emailBody = `
+           <h1>Reservation Confirmation for Kuri Coffee Slowbar 195</h1>
+           <p>Dear ${reservation.name},</p>
+           <p>Your reservation has been successfully confirmed!</p>
+           <p><strong>Reservation ID:</strong> RES-${reservation.id}</p>
+           <p><strong>Date:</strong> ${reservation.date}</p>
+           <p><strong>Time:</strong> ${reservation.time}</p>
+           <p><strong>Number of People:</strong> ${reservation.people}</p>
+           <p><strong>Coffee Selection:</strong> ${reservation.coffee_name}</p>
+           <p><strong>Total Amount:</strong> Rp ${reservation.total_amount.toLocaleString()}</p>
+           ${reservation.notes ? `<p><strong>Special Notes:</strong> ${reservation.notes}</p>` : ""}
+           <p>We look forward to seeing you!</p>
+           <p>Best regards,</p>
+           <p>The Kuri Coffee Slowbar 195 Team</p>
+         `
 
-      const emailBody = `
-        <h1>Reservation Confirmation for Kuri Coffee Slowbar 195</h1>
-        <p>Dear ${reservation.name},</p>
-        <p>Your reservation has been successfully confirmed!</p>
-        <p><strong>Reservation ID:</strong> RES-${reservation.id}</p>
-        <p><strong>Date:</strong> ${reservation.date}</p>
-        <p><strong>Time:</strong> ${reservation.time}</p>
-        <p><strong>Number of People:</strong> ${reservation.people}</p>
-        <p><strong>Coffee Selection:</strong> ${reservation.coffee_name}</p>
-        <p><strong>Total Amount:</strong> Rp ${reservation.total_amount.toLocaleString()}</p>
-        ${reservation.notes ? `<p><strong>Special Notes:</strong> ${reservation.notes}</p>` : ""}
-        <p>We look forward to seeing you!</p>
-        <p>Best regards,</p>
-        <p>The Kuri Coffee Slowbar 195 Team</p>
-      `
+        const emailResponse = await fetch(cloudflareWorkerUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to: reservation.email || "default@example.com", // Use reservation email or a fallback
+            subject: `Kuri Coffee Reservation Confirmed: RES-${reservation.id}`,
+            body: emailBody,
+          }),
+        })
 
-      await resend.emails.send({
-        from: "onboarding@resend.dev", // Replace with your verified sender email
-        to: reservation.email || "default@example.com", // Use reservation email or a fallback
-        subject: `Kuri Coffee Reservation Confirmed: RES-${reservation.id}`,
-        html: emailBody,
-      })
+        if (!emailResponse.ok) {
+          const errorData = await emailResponse.json()
+          throw new Error(errorData.error || `Cloudflare Worker responded with status ${emailResponse.status}`)
+        }
 
-      console.log(`Confirmation email sent for reservation ID: ${reservation.id}`)
+        console.log(`Confirmation email sent via Cloudflare Worker for reservation ID: ${reservation.id}`)
+      }
     } catch (emailError) {
-      console.error("Failed to send confirmation email:", emailError)
+      console.error("Failed to send confirmation email via Cloudflare Worker:", emailError)
       // You might want to log this error but still return success for the reservation
     }
     // --- End Email Sending Logic ---
