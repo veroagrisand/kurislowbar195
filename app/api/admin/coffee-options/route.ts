@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { revalidatePath } from "next/cache" // Import revalidatePath
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,6 +33,10 @@ export async function POST(request: NextRequest) {
       RETURNING *
     `
 
+    // Revalidate paths after successful creation
+    revalidatePath("/")
+    revalidatePath("/reservation")
+
     return NextResponse.json({ coffeeOption: result[0] })
   } catch (error) {
     console.error("Error creating coffee option:", error)
@@ -60,6 +65,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Coffee option not found" }, { status: 404 })
     }
 
+    // Revalidate paths after successful update
+    revalidatePath("/")
+    revalidatePath("/reservation")
+
     return NextResponse.json({ coffeeOption: result[0] })
   } catch (error) {
     console.error("Error updating coffee option:", error)
@@ -85,6 +94,10 @@ export async function DELETE(request: NextRequest) {
     if (result.length === 0) {
       return NextResponse.json({ error: "Coffee option not found" }, { status: 404 })
     }
+
+    // Revalidate paths after successful deletion
+    revalidatePath("/")
+    revalidatePath("/reservation")
 
     return NextResponse.json({ message: "Coffee option deleted successfully" })
   } catch (error) {

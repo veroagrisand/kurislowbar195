@@ -154,6 +154,8 @@ export default function AdminPage() {
         title: "Success",
         description: "Coffee option added successfully",
       })
+
+      router.refresh() // Refresh the current page to re-fetch data
     } catch (error) {
       console.error("Error adding coffee:", error)
       toast({
@@ -187,6 +189,8 @@ export default function AdminPage() {
         title: "Success",
         description: "Coffee option updated successfully",
       })
+
+      router.refresh() // Refresh the current page to re-fetch data
     } catch (error) {
       console.error("Error updating coffee:", error)
       toast({
@@ -218,6 +222,8 @@ export default function AdminPage() {
         title: "Success",
         description: "Coffee option deleted successfully",
       })
+
+      router.refresh() // Refresh the current page to re-fetch data
     } catch (error) {
       console.error("Error deleting coffee:", error)
       toast({
