@@ -45,6 +45,6 @@ export async function verifySession(): Promise<SessionPayload | null> {
 }
 
 /* ------------ DESTROY SESSION ------------ */
-export function deleteSession() {
+export function destroySession() {
   cookies().delete("admin-session")
 }
