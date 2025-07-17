@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
     // Revalidate paths after successful creation
     revalidatePath("/")
     revalidatePath("/reservation")
+    revalidatePath("/admin") // <--- Added: Revalidate admin page
 
     return NextResponse.json({ coffeeOption: result[0] })
   } catch (error) {
@@ -68,6 +69,7 @@ export async function PUT(request: NextRequest) {
     // Revalidate paths after successful update
     revalidatePath("/")
     revalidatePath("/reservation")
+    revalidatePath("/admin") // <--- Added: Revalidate admin page
 
     return NextResponse.json({ coffeeOption: result[0] })
   } catch (error) {
@@ -98,6 +100,7 @@ export async function DELETE(request: NextRequest) {
     // Revalidate paths after successful deletion
     revalidatePath("/")
     revalidatePath("/reservation")
+    revalidatePath("/admin") // <--- Added: Revalidate admin page
 
     return NextResponse.json({ message: "Coffee option deleted successfully" })
   } catch (error) {

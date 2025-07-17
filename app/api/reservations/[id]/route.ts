@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getReservationById, updateReservationStatus, confirmPayment } from "@/lib/db"
+import { revalidatePath } from "next/cache" // Import revalidatePath
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -35,6 +36,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (!reservation) {
       return NextResponse.json({ error: "Reservation not found" }, { status: 404 })
     }
+
+    // Revalidate paths after successful update
+    revalidatePath("/admin") // <--- Added: Revalidate admin page
+    revalidatePath("/dashboard") // <--- Added: Revalidate dashboard page
 
     return NextResponse.json({ reservation })
   } catch (error) {

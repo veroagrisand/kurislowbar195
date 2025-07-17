@@ -147,15 +147,14 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to add coffee option")
       }
 
-      setCoffeeOptions([...coffeeOptions, data.coffeeOption])
+      // Update local state and re-fetch all data
       setNewCoffee({ name: "", price: "", description: "" })
+      await fetchData() // <--- Changed: Call fetchData to refresh all data
 
       toast({
         title: "Success",
         description: "Coffee option added successfully",
       })
-
-      router.refresh() // Refresh the current page to re-fetch data
     } catch (error) {
       console.error("Error adding coffee:", error)
       toast({
@@ -182,15 +181,13 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to update coffee option")
       }
 
-      setCoffeeOptions(coffeeOptions.map((c) => (c.id === coffee.id ? data.coffeeOption : c)))
       setEditingCoffee(null)
+      await fetchData() // <--- Changed: Call fetchData to refresh all data
 
       toast({
         title: "Success",
         description: "Coffee option updated successfully",
       })
-
-      router.refresh() // Refresh the current page to re-fetch data
     } catch (error) {
       console.error("Error updating coffee:", error)
       toast({
@@ -216,14 +213,12 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to delete coffee option")
       }
 
-      setCoffeeOptions(coffeeOptions.filter((c) => c.id !== id))
+      await fetchData() // <--- Changed: Call fetchData to refresh all data
 
       toast({
         title: "Success",
         description: "Coffee option deleted successfully",
       })
-
-      router.refresh() // Refresh the current page to re-fetch data
     } catch (error) {
       console.error("Error deleting coffee:", error)
       toast({
@@ -250,9 +245,16 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to update reservation status")
       }
 
+      // Update local state for reservations and re-fetch stats
       setReservations(
         reservations.map((order) => (order.id === orderId ? { ...order, status: newStatus as any } : order)),
       )
+      // Re-fetch stats as pending reservations might change
+      const statsResponse = await fetch("/api/admin/reservations")
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json()
+        setStats(statsData.stats)
+      }
 
       toast({
         title: "Success",
