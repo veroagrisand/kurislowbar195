@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { decrypt } from "./lib/auth"
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Protect admin routes
@@ -11,15 +10,6 @@ export async function middleware(request: NextRequest) {
 
     if (!sessionToken) {
       return NextResponse.redirect(new URL("/admin/login", request.url))
-    }
-
-    // Verify session and check expiration
-    const session = await decrypt(sessionToken)
-    if (!session || new Date(session.expiresAt) < new Date()) {
-      // Session expired, redirect to login
-      const response = NextResponse.redirect(new URL("/admin/login", request.url))
-      response.cookies.delete("admin-session")
-      return response
     }
   }
 

@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const session = await verifySession()
 
     if (!session) {
-      return NextResponse.json({ error: "Not authenticated or session expired" }, { status: 401 })
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const { currentPassword, newPassword } = await request.json()
@@ -23,41 +23,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "New password must be at least 6 characters long" }, { status: 400 })
     }
 
-    // Get current admin user
-    const result = await sql`
-      SELECT password_hash 
+    // Get current user
+    const users = await sql`
+      SELECT id, password_hash
       FROM admin_users 
-      WHERE id = ${Number.parseInt(session.userId)}
+      WHERE id = ${session.userId} AND is_active = true
     `
 
-    if (result.length === 0) {
-      return NextResponse.json({ error: "Admin user not found" }, { status: 404 })
+    if (users.length === 0) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    const admin = result[0]
+    const user = users[0]
 
     // Verify current password
-    const isValidPassword = await bcrypt.compare(currentPassword, admin.password_hash)
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password_hash)
 
     if (!isValidPassword) {
-      return NextResponse.json({ error: "Current password is incorrect" }, { status: 401 })
+      return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 })
     }
 
     // Hash new password
     const saltRounds = 12
     const newPasswordHash = await bcrypt.hash(newPassword, saltRounds)
 
-    // Update password in database
+    // Update password
     await sql`
       UPDATE admin_users 
       SET password_hash = ${newPasswordHash}, updated_at = NOW()
-      WHERE id = ${Number.parseInt(session.userId)}
+      WHERE id = ${session.userId}
     `
 
-    return NextResponse.json({
-      success: true,
-      message: "Password changed successfully",
-    })
+    return NextResponse.json({ success: true, message: "Password updated successfully" })
   } catch (error) {
     console.error("Change password error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

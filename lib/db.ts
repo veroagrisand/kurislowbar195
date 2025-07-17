@@ -1,12 +1,7 @@
 import { neon } from "@neondatabase/serverless"
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL environment variable is not set")
-}
-
-const sql = neon(process.env.DATABASE_URL)
-
-export { sql }
+// --- Database client -------------------------------------------------------
+export const sql = neon(process.env.DATABASE_URL!)
 
 // Types
 export interface Reservation {
@@ -251,5 +246,36 @@ export async function canMakeReservation(
   return {
     canBook: true,
     availableSpots: timeSlot.available_spots,
+  }
+}
+
+export async function findValidSession(sessionToken: string) {
+  try {
+    const sessions = await sql`
+      SELECT s.*, u.id as user_id, u.username, u.email, u.full_name, u.role
+      FROM admin_sessions s
+      JOIN admin_users u ON s.user_id = u.id
+      WHERE s.session_token = ${sessionToken} 
+      AND s.expires_at > NOW()
+      AND u.is_active = true
+    `
+
+    if (sessions.length === 0) {
+      return null
+    }
+
+    const session = sessions[0]
+    return {
+      user: {
+        id: session.user_id,
+        username: session.username,
+        email: session.email,
+        full_name: session.full_name,
+        role: session.role,
+      },
+    }
+  } catch (error) {
+    console.error("Database error:", error)
+    return null
   }
 }
