@@ -1,12 +1,9 @@
--- Insert default coffee options
-INSERT INTO coffee_options (id, name, price, description) VALUES
-  ('arabica-blend', 'Arabica House Blend', 45000, 'Our signature blend with notes of chocolate and caramel'),
-  ('robusta-special', 'Robusta Special', 40000, 'Bold and strong coffee with earthy undertones'),
-  ('kopi-luwak', 'Kopi Luwak Premium', 85000, 'Rare and exotic coffee with unique processing method'),
-  ('java-preanger', 'Java Preanger', 55000, 'Traditional Indonesian coffee with earthy undertones'),
-  ('toraja-highland', 'Toraja Highland', 65000, 'Full-bodied coffee from the mountains of Sulawesi')
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  price = EXCLUDED.price,
-  description = EXCLUDED.description,
-  updated_at = CURRENT_TIMESTAMP;
+INSERT INTO coffee_options (name, price, description, is_active) VALUES
+('Arabica Gayo Wine', 45000.00, 'A unique Arabica with a distinct wine-like fermentation process, offering complex fruity notes.', TRUE),
+('Robusta Lampung', 25000.00, 'Strong and bold Robusta from Lampung, perfect for a rich and intense coffee experience.', TRUE),
+('Arabica Mandheling', 40000.00, 'Full-bodied Arabica from North Sumatra, known for its smooth, earthy, and sweet chocolate notes.', TRUE),
+('Kopi Luwak', 150000.00, 'The world''s most exclusive coffee, processed by civets, resulting in an exceptionally smooth and aromatic cup.', TRUE),
+('Arabica Toraja', 38000.00, 'Bright and clean Arabica from Toraja, Sulawesi, with notes of dark chocolate and ripe fruit.', TRUE),
+('Espresso Blend', 30000.00, 'Our signature blend, expertly roasted for a balanced and rich espresso shot, perfect for milk-based drinks.', TRUE),
+('Decaf House Blend', 35000.00, 'A flavorful decaffeinated blend, offering all the taste without the caffeine.', TRUE),
+('Cold Brew Concentrate', 50000.00, 'Smooth and low-acid cold brew concentrate, perfect for mixing with water or milk.', TRUE);

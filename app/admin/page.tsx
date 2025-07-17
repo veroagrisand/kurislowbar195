@@ -1,111 +1,103 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, Edit, Trash2, Eye, Coffee, Users, Calendar, Clock, LogOut, RefreshCw } from "lucide-react"
+import type React from "react"
+
+import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
+import {
+  Calendar,
+  DollarSign,
+  Users,
+  Eye,
+  Trash2,
+  CheckCircle,
+  XCircle,
+  RefreshCcw,
+  LogOut,
+  Loader2,
+  Edit,
+  Plus,
+  Clock,
+} from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+import { PageWrapper } from "@/components/page-wrapper"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { Reservation, CoffeeOption } from "@/lib/db" // Import types from lib/db
 
-interface Reservation {
-  id: number
-  name: string
-  phone: string
-  email?: string
-  date: string
-  time: string
-  people: number
-  coffee_name: string
-  coffee_price: number
-  total_amount: number
-  notes?: string
-  status: "pending" | "confirmed" | "completed" | "cancelled"
-  created_at: string
-}
-
-interface CoffeeOption {
-  id: string
-  name: string
-  price: number
-  description?: string
-  is_active: boolean
-}
-
-interface Stats {
-  total: number
-  today: number
-  revenue: number
-  pending: number
+// Helper to safely parse JSON, handling non-JSON responses
+async function safeJson(response: Response) {
+  const contentType = response.headers.get("content-type")
+  if (contentType && contentType.includes("application/json")) {
+    return response.json()
+  }
+  // If not JSON, read as text and throw a specific error
+  const text = await response.text()
+  throw new Error(`Non-JSON response: ${text.substring(0, 200)}... (Status: ${response.status})`)
 }
 
 export default function AdminPage() {
-  const { toast } = useToast()
   const router = useRouter()
+  const { toast } = useToast()
 
   const [reservations, setReservations] = useState<Reservation[]>([])
-  const [coffeeOptions, setCoffeeOptions] = useState<CoffeeOption[]>([])
-  const [stats, setStats] = useState<Stats>({ total: 0, today: 0, revenue: 0, pending: 0 })
+  const [stats, setStats] = useState({ total: 0, today: 0, revenue: 0, pending: 0 })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  const [isCoffeeModalOpen, setIsCoffeeModalOpen] = useState(false)
+  const [coffeeOptions, setCoffeeOptions] = useState<CoffeeOption[]>([])
   const [newCoffee, setNewCoffee] = useState({ name: "", price: "", description: "" })
   const [editingCoffee, setEditingCoffee] = useState<CoffeeOption | null>(null)
+  const [isCoffeeLoading, setIsCoffeeLoading] = useState(false)
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [searchTerm, setSearchTerm] = useState("")
 
-  const fetchData = async () => {
+  const fetchAdminData = async () => {
     setLoading(true)
+    setError(null)
     try {
-      // Fetch reservations and stats
-      const reservationsResponse = await fetch("/api/admin/reservations")
-      let reservationsData
+      const res = await fetch("/api/admin/reservations", { cache: "no-store" })
+      const data = await safeJson(res)
 
-      if (reservationsResponse.ok) {
-        reservationsData = await reservationsResponse.json()
-        setReservations(reservationsData.reservations)
-        setStats(reservationsData.stats)
-      } else {
-        try {
-          reservationsData = await reservationsResponse.json()
-          throw new Error(reservationsData.error || `Server error: ${reservationsResponse.status}`)
-        } catch (jsonError) {
-          const textError = await reservationsResponse.text()
-          throw new Error(
-            `Server responded with non-JSON error from /api/admin/reservations: ${reservationsResponse.status} - ${textError}`,
-          )
-        }
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch admin data")
       }
-
-      // Fetch coffee options
-      const coffeeResponse = await fetch("/api/coffee-options")
-      let coffeeData
-
-      if (coffeeResponse.ok) {
-        coffeeData = await coffeeResponse.json()
-        setCoffeeOptions(coffeeData.coffeeOptions)
-      } else {
-        try {
-          coffeeData = await coffeeResponse.json()
-          throw new Error(coffeeData.error || `Server error: ${coffeeResponse.status}`)
-        } catch (jsonError) {
-          const textError = await coffeeResponse.text()
-          throw new Error(
-            `Server responded with non-JSON error from /api/coffee-options: ${coffeeResponse.status} - ${textError}`,
-          )
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error)
+      setReservations(data.reservations)
+      setStats(data.stats)
+    } catch (err: any) {
+      console.error("Error fetching admin data:", err)
+      setError(err.message || "Failed to load admin data.")
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load admin data",
+        description: err.message || "Failed to load admin data.",
         variant: "destructive",
       })
     } finally {
@@ -113,404 +105,624 @@ export default function AdminPage() {
     }
   }
 
-  const handleLogout = () => {
-    document.cookie = "admin-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out",
-    })
-    router.push("/admin/login")
-  }
-
-  const handleAddCoffee = async () => {
-    if (!newCoffee.name || !newCoffee.price) {
+  const fetchCoffeeOptions = async () => {
+    setIsCoffeeLoading(true)
+    try {
+      const res = await fetch("/api/admin/coffee-options", { cache: "no-store" })
+      const data = await safeJson(res)
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch coffee options")
+      }
+      setCoffeeOptions(data.coffeeOptions)
+    } catch (err: any) {
+      console.error("Error fetching coffee options:", err)
       toast({
         title: "Error",
-        description: "Please fill in name and price",
+        description: err.message || "Failed to load coffee options.",
         variant: "destructive",
       })
-      return
+    } finally {
+      setIsCoffeeLoading(false)
     }
+  }
 
+  useEffect(() => {
+    fetchAdminData()
+    fetchCoffeeOptions()
+  }, [])
+
+  const handleLogout = async () => {
     try {
-      const response = await fetch("/api/admin/coffee-options", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newCoffee),
+      const res = await fetch("/api/admin/auth/logout", { method: "POST" })
+      if (res.ok) {
+        toast({
+          title: "Logged out",
+          description: "You have been successfully logged out.",
+        })
+        router.push("/admin/login")
+      } else {
+        const data = await safeJson(res)
+        throw new Error(data.error || "Failed to log out")
+      }
+    } catch (err: any) {
+      console.error("Logout error:", err)
+      toast({
+        title: "Error",
+        description: err.message || "Failed to log out.",
+        variant: "destructive",
       })
+    }
+  }
 
-      const data = await response.json()
+  const handleDeleteReservation = async (id: number) => {
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/reservations/${id}`, { method: "DELETE" })
+      const data = await safeJson(res)
 
-      if (!response.ok) {
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete reservation")
+      }
+
+      toast({
+        title: "Success",
+        description: "Reservation deleted successfully.",
+      })
+      fetchAdminData() // Refresh data
+    } catch (err: any) {
+      console.error(`Error deleting reservation ${id}:`, err)
+      toast({
+        title: "Error",
+        description: err.message || "Failed to delete reservation.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleUpdateStatus = async (id: number, status: string) => {
+    setIsUpdatingStatus(true)
+    try {
+      const res = await fetch(`/api/admin/reservations/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      })
+      const data = await safeJson(res)
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update status")
+      }
+
+      toast({
+        title: "Success",
+        description: `Reservation ${id} status updated to ${status}.`,
+      })
+      fetchAdminData() // Refresh data
+    } catch (err: any) {
+      console.error(`Error updating status for reservation ${id}:`, err)
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update reservation status.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
+  const handleAddCoffee = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsCoffeeLoading(true)
+    try {
+      const res = await fetch("/api/admin/coffee-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newCoffee.name,
+          price: Number.parseFloat(newCoffee.price),
+          description: newCoffee.description,
+        }),
+      })
+      const data = await safeJson(res)
+
+      if (!res.ok) {
         throw new Error(data.error || "Failed to add coffee option")
       }
 
-      // Update local state and re-fetch all data
-      setNewCoffee({ name: "", price: "", description: "" })
-      await fetchData() // <--- Changed: Call fetchData to refresh all data
-
       toast({
         title: "Success",
-        description: "Coffee option added successfully",
+        description: "Coffee option added successfully.",
       })
-    } catch (error) {
-      console.error("Error adding coffee:", error)
+      setNewCoffee({ name: "", price: "", description: "" })
+      fetchCoffeeOptions()
+    } catch (err: any) {
+      console.error("Error adding coffee option:", err)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add coffee option",
+        description: err.message || "Failed to add coffee option.",
         variant: "destructive",
       })
+    } finally {
+      setIsCoffeeLoading(false)
     }
   }
 
-  const handleEditCoffee = async (coffee: CoffeeOption) => {
+  const handleUpdateCoffee = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingCoffee) return
+
+    setIsCoffeeLoading(true)
     try {
-      const response = await fetch("/api/admin/coffee-options", {
+      const res = await fetch(`/api/admin/coffee-options/${editingCoffee.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(coffee),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editingCoffee.name,
+          price: editingCoffee.price,
+          description: editingCoffee.description,
+          is_active: editingCoffee.is_active,
+        }),
       })
+      const data = await safeJson(res)
 
-      const data = await response.json()
-
-      if (!response.ok) {
+      if (!res.ok) {
         throw new Error(data.error || "Failed to update coffee option")
       }
 
-      setEditingCoffee(null)
-      await fetchData() // <--- Changed: Call fetchData to refresh all data
-
       toast({
         title: "Success",
-        description: "Coffee option updated successfully",
+        description: "Coffee option updated successfully.",
       })
-    } catch (error) {
-      console.error("Error updating coffee:", error)
+      setEditingCoffee(null)
+      fetchCoffeeOptions()
+    } catch (err: any) {
+      console.error("Error updating coffee option:", err)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update coffee option",
+        description: err.message || "Failed to update coffee option.",
         variant: "destructive",
       })
+    } finally {
+      setIsCoffeeLoading(false)
     }
   }
 
   const handleDeleteCoffee = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this coffee option?")) {
-      return
-    }
-
+    setIsCoffeeLoading(true)
     try {
-      const response = await fetch(`/api/admin/coffee-options?id=${id}`, {
-        method: "DELETE",
-      })
+      const res = await fetch(`/api/admin/coffee-options/${id}`, { method: "DELETE" })
+      const data = await safeJson(res)
 
-      if (!response.ok) {
-        const data = await response.json()
+      if (!res.ok) {
         throw new Error(data.error || "Failed to delete coffee option")
       }
 
-      await fetchData() // <--- Changed: Call fetchData to refresh all data
-
       toast({
         title: "Success",
-        description: "Coffee option deleted successfully",
+        description: "Coffee option deleted successfully.",
       })
-    } catch (error) {
-      console.error("Error deleting coffee:", error)
+      fetchCoffeeOptions()
+    } catch (err: any) {
+      console.error("Error deleting coffee option:", err)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete coffee option",
+        description: err.message || "Failed to delete coffee option.",
         variant: "destructive",
       })
+    } finally {
+      setIsCoffeeLoading(false)
     }
   }
 
-  const updateOrderStatus = async (orderId: number, newStatus: string) => {
-    try {
-      const response = await fetch(`/api/reservations/${orderId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: newStatus }),
-      })
+  const filteredReservations = useMemo(() => {
+    let filtered = reservations
 
-      const data = await response.json()
+    if (filterStatus !== "all") {
+      filtered = filtered.filter((r) => r.status === filterStatus)
+    }
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to update reservation status")
-      }
-
-      // Update local state for reservations and re-fetch stats
-      setReservations(
-        reservations.map((order) => (order.id === orderId ? { ...order, status: newStatus as any } : order)),
+    if (searchTerm) {
+      const lowerCaseSearchTerm = searchTerm.toLowerCase()
+      filtered = filtered.filter(
+        (r) =>
+          r.name.toLowerCase().includes(lowerCaseSearchTerm) ||
+          r.phone.toLowerCase().includes(lowerCaseSearchTerm) ||
+          r.email?.toLowerCase().includes(lowerCaseSearchTerm) ||
+          r.coffee_name.toLowerCase().includes(lowerCaseSearchTerm) ||
+          r.id.toString().includes(lowerCaseSearchTerm),
       )
-      // Re-fetch stats as pending reservations might change
-      const statsResponse = await fetch("/api/admin/reservations")
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json()
-        setStats(statsData.stats)
-      }
-
-      toast({
-        title: "Success",
-        description: `Reservation status updated to ${newStatus}`,
-      })
-    } catch (error) {
-      console.error("Error updating status:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update reservation status",
-        variant: "destructive",
-      })
     }
-  }
 
-  const getStatusBadge = (status: string) => {
-    const variants: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
-      pending: "outline",
-      confirmed: "default",
-      completed: "secondary",
-      cancelled: "destructive",
+    return filtered
+  }, [reservations, filterStatus, searchTerm])
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "default"
+      case "confirmed":
+        return "secondary"
+      case "completed":
+        return "success"
+      case "cancelled":
+        return "destructive"
+      default:
+        return "outline"
     }
-    return <Badge variant={variants[status] || "outline"}>{status}</Badge>
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Loading admin dashboard...</p>
-        </div>
-      </div>
-    )
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <PageWrapper className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-            <p className="text-muted-foreground">kurislowbar195 Management</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={fetchData}
-              className="flex items-center gap-2 button-press bg-transparent"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={fetchAdminData} disabled={loading}>
+              <RefreshCcw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh Data
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleLogout}
-              className="flex items-center gap-2 button-press bg-transparent"
-            >
-              <LogOut className="h-4 w-4" />
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
               Logout
             </Button>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="card-hover">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Reservations</p>
-                  <p className="text-3xl font-bold text-foreground">{stats.total}</p>
-                </div>
-                <Calendar className="h-8 w-8 text-coffee-500" />
-              </div>
-            </CardContent>
-          </Card>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6"
+            role="alert"
+          >
+            <strong className="font-bold">Error!</strong>
+            <span className="block sm:inline"> {error}</span>
+          </motion.div>
+        )}
 
-          <Card className="card-hover">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Today's Reservations</p>
-                  <p className="text-3xl font-bold text-foreground">{stats.today}</p>
-                </div>
-                <Clock className="h-8 w-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-hover">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                  <p className="text-3xl font-bold text-foreground">Rp {stats.revenue.toLocaleString()}</p>
-                </div>
-                <Users className="h-8 w-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-hover">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Pending Reservations</p>
-                  <p className="text-3xl font-bold text-foreground">{stats.pending}</p>
-                </div>
-                <Coffee className="h-8 w-8 text-amber-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="orders" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="orders">Reservations Management</TabsTrigger>
-            <TabsTrigger value="coffee">Coffee Options</TabsTrigger>
+        <Tabs defaultValue="reservations" className="w-full">
+          <TabsList className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-4 h-auto">
+            <TabsTrigger value="reservations">Reservations</TabsTrigger>
+            <TabsTrigger value="coffee-options">Coffee Options</TabsTrigger>
+            <TabsTrigger value="stats">Statistics</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="orders">
+          <TabsContent value="reservations" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Reservations</CardTitle>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.total}</div>
+                  <p className="text-xs text-muted-foreground">All time bookings</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Today&apos;s Reservations</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.today}</div>
+                  <p className="text-xs text-muted-foreground">Bookings for today</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">Rp {stats.revenue.toLocaleString("id-ID")}</div>
+                  <p className="text-xs text-muted-foreground">From confirmed/completed bookings</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Pending Reservations</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.pending}</div>
+                  <p className="text-xs text-muted-foreground">Awaiting confirmation</p>
+                </CardContent>
+              </Card>
+            </div>
+
             <Card>
               <CardHeader>
-                <CardTitle>Recent Reservations</CardTitle>
-                <CardDescription>Manage customer reservations and orders</CardDescription>
+                <CardTitle className="flex items-center justify-between">
+                  <span>All Reservations</span>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Search reservations..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="max-w-xs"
+                    />
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                {reservations.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">No reservations found</p>
+                {loading ? (
+                  <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="ml-2">Loading reservations...</span>
                   </div>
+                ) : filteredReservations.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No reservations found.</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>ID</TableHead>
-                          <TableHead>Customer</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Contact</TableHead>
                           <TableHead>Date & Time</TableHead>
                           <TableHead>People</TableHead>
                           <TableHead>Coffee</TableHead>
                           <TableHead>Amount</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
+                          <TableHead>Notes</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {reservations.map((order) => (
-                          <TableRow key={order.id}>
-                            <TableCell className="font-mono text-sm">RES-{order.id}</TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{order.name}</p>
-                                <p className="text-sm text-gray-500">{order.phone}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <p>{order.date}</p>
-                                <p className="text-sm text-gray-500">{order.time}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>{order.people}</TableCell>
-                            <TableCell className="max-w-32 truncate">{order.coffee_name}</TableCell>
-                            <TableCell>Rp {order.total_amount?.toLocaleString()}</TableCell>
-                            <TableCell>{getStatusBadge(order.status)}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button size="sm" variant="outline" className="button-press bg-transparent">
-                                      <Eye className="h-3 w-3" />
+                        <AnimatePresence>
+                          {filteredReservations.map((reservation) => (
+                            <motion.tr
+                              key={reservation.id}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, x: -20 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              <TableCell className="font-medium">RES-{reservation.id}</TableCell>
+                              <TableCell>{reservation.name}</TableCell>
+                              <TableCell>
+                                {reservation.phone}
+                                {reservation.email && (
+                                  <span className="block text-xs text-muted-foreground">{reservation.email}</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {reservation.date} at {reservation.time}
+                              </TableCell>
+                              <TableCell>{reservation.people}</TableCell>
+                              <TableCell>{reservation.coffee_name}</TableCell>
+                              <TableCell>Rp {reservation.total_amount.toLocaleString("id-ID")}</TableCell>
+                              <TableCell>
+                                <Badge variant={getStatusBadgeVariant(reservation.status)}>
+                                  {reservation.status.charAt(0).toUpperCase() + reservation.status.slice(1)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="max-w-[150px] truncate">{reservation.notes || "-"}</TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 w-8 p-0">
+                                      <span className="sr-only">Open menu</span>
+                                      <Eye className="h-4 w-4" />
                                     </Button>
-                                  </DialogTrigger>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Reservation Details - RES-{order.id}</DialogTitle>
-                                    </DialogHeader>
-                                    <div className="space-y-4">
-                                      <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                          <Label>Customer Name</Label>
-                                          <p className="font-medium">{order.name}</p>
-                                        </div>
-                                        <div>
-                                          <Label>Phone</Label>
-                                          <p className="font-medium">{order.phone}</p>
-                                        </div>
-                                        {order.email && (
-                                          <div>
-                                            <Label>Email</Label>
-                                            <p className="font-medium">{order.email}</p>
-                                          </div>
-                                        )}
-                                        <div>
-                                          <Label>Date</Label>
-                                          <p className="font-medium">{order.date}</p>
-                                        </div>
-                                        <div>
-                                          <Label>Time</Label>
-                                          <p className="font-medium">{order.time}</p>
-                                        </div>
-                                        <div>
-                                          <Label>People</Label>
-                                          <p className="font-medium">{order.people}</p>
-                                        </div>
-                                        <div>
-                                          <Label>Coffee</Label>
-                                          <p className="font-medium">{order.coffee_name}</p>
-                                        </div>
-                                        <div>
-                                          <Label>Total Amount</Label>
-                                          <p className="font-medium">Rp {order.total_amount.toLocaleString()}</p>
-                                        </div>
-                                      </div>
-                                      {order.notes && (
-                                        <div>
-                                          <Label>Special Notes</Label>
-                                          <p className="text-sm bg-gray-50 dark:bg-gray-900 p-2 rounded">
-                                            {order.notes}
-                                          </p>
-                                        </div>
-                                      )}
-                                      <div className="flex gap-2 flex-wrap">
-                                        <Button
-                                          size="sm"
-                                          onClick={() => updateOrderStatus(order.id, "confirmed")}
-                                          disabled={order.status === "confirmed"}
-                                          className="button-press"
-                                        >
-                                          Confirm
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => updateOrderStatus(order.id, "completed")}
-                                          disabled={order.status === "completed"}
-                                          className="button-press"
-                                        >
-                                          Complete
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="destructive"
-                                          onClick={() => updateOrderStatus(order.id, "cancelled")}
-                                          disabled={order.status === "cancelled"}
-                                          className="button-press"
-                                        >
-                                          Cancel
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              </div>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                    <DropdownMenuItem
+                                      onClick={() => handleUpdateStatus(reservation.id, "confirmed")}
+                                      disabled={reservation.status === "confirmed" || isUpdatingStatus}
+                                    >
+                                      <CheckCircle className="mr-2 h-4 w-4" /> Confirm
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleUpdateStatus(reservation.id, "completed")}
+                                      disabled={reservation.status === "completed" || isUpdatingStatus}
+                                    >
+                                      <CheckCircle className="mr-2 h-4 w-4" /> Mark as Completed
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleUpdateStatus(reservation.id, "cancelled")}
+                                      disabled={reservation.status === "cancelled" || isUpdatingStatus}
+                                    >
+                                      <XCircle className="mr-2 h-4 w-4" /> Cancel
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => handleDeleteReservation(reservation.id)}
+                                      className="text-red-600"
+                                      disabled={isDeleting}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </motion.tr>
+                          ))}
+                        </AnimatePresence>
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="coffee-options" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Coffee Options Management</span>
+                  <Dialog open={isCoffeeModalOpen} onOpenChange={setIsCoffeeModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        onClick={() => {
+                          setNewCoffee({ name: "", price: "", description: "" })
+                          setEditingCoffee(null)
+                        }}
+                      >
+                        <Plus className="mr-2 h-4 w-4" /> Add New Coffee
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>{editingCoffee ? "Edit Coffee Option" : "Add New Coffee Option"}</DialogTitle>
+                        <DialogDescription>
+                          {editingCoffee
+                            ? "Make changes to this coffee option."
+                            : "Add a new coffee option to your menu."}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={editingCoffee ? handleUpdateCoffee : handleAddCoffee} className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="coffee-name" className="text-right">
+                            Name
+                          </Label>
+                          <Input
+                            id="coffee-name"
+                            value={editingCoffee ? editingCoffee.name : newCoffee.name}
+                            onChange={(e) =>
+                              editingCoffee
+                                ? setEditingCoffee({ ...editingCoffee, name: e.target.value })
+                                : setNewCoffee({ ...newCoffee, name: e.target.value })
+                            }
+                            className="col-span-3"
+                            required
+                          />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="coffee-price" className="text-right">
+                            Price (Rp)
+                          </Label>
+                          <Input
+                            id="coffee-price"
+                            type="number"
+                            step="any"
+                            value={editingCoffee ? editingCoffee.price : newCoffee.price}
+                            onChange={(e) =>
+                              editingCoffee
+                                ? setEditingCoffee({ ...editingCoffee, price: Number.parseFloat(e.target.value) })
+                                : setNewCoffee({ ...newCoffee, price: e.target.value })
+                            }
+                            className="col-span-3"
+                            required
+                          />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="coffee-description" className="text-right">
+                            Description
+                          </Label>
+                          <Textarea
+                            id="coffee-description"
+                            value={editingCoffee ? editingCoffee.description || "" : newCoffee.description}
+                            onChange={(e) =>
+                              editingCoffee
+                                ? setEditingCoffee({ ...editingCoffee, description: e.target.value })
+                                : setNewCoffee({ ...newCoffee, description: e.target.value })
+                            }
+                            className="col-span-3"
+                          />
+                        </div>
+                        {editingCoffee && (
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="coffee-active" className="text-right">
+                              Active
+                            </Label>
+                            <input
+                              type="checkbox"
+                              id="coffee-active"
+                              checked={editingCoffee.is_active}
+                              onChange={(e) => setEditingCoffee({ ...editingCoffee, is_active: e.target.checked })}
+                              className="col-span-3 h-4 w-4"
+                            />
+                          </div>
+                        )}
+                        <DialogFooter>
+                          <Button type="submit" disabled={isCoffeeLoading}>
+                            {isCoffeeLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {editingCoffee ? "Save changes" : "Add Coffee"}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isCoffeeLoading && !coffeeOptions.length ? (
+                  <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="ml-2">Loading coffee options...</span>
+                  </div>
+                ) : coffeeOptions.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No coffee options found.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Price</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Active</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {coffeeOptions.map((coffee) => (
+                          <TableRow key={coffee.id}>
+                            <TableCell className="font-medium">{coffee.name}</TableCell>
+                            <TableCell>Rp {coffee.price.toLocaleString("id-ID")}</TableCell>
+                            <TableCell className="max-w-[200px] truncate">{coffee.description || "-"}</TableCell>
+                            <TableCell>
+                              <Badge variant={coffee.is_active ? "success" : "destructive"}>
+                                {coffee.is_active ? "Yes" : "No"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <span className="sr-only">Open menu</span>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setEditingCoffee(coffee)
+                                      setIsCoffeeModalOpen(true)
+                                    }}
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" /> Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteCoffee(coffee.id)}
+                                    className="text-red-600"
+                                    disabled={isCoffeeLoading}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -522,136 +734,39 @@ export default function AdminPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="coffee">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Add New Coffee Option</CardTitle>
-                  <CardDescription>Add new coffee blends to your menu</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="coffee-name">Coffee Name</Label>
-                    <Input
-                      id="coffee-name"
-                      value={newCoffee.name}
-                      onChange={(e) => setNewCoffee({ ...newCoffee, name: e.target.value })}
-                      placeholder="Enter coffee name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="coffee-price">Price (Rp)</Label>
-                    <Input
-                      id="coffee-price"
-                      type="number"
-                      value={newCoffee.price}
-                      onChange={(e) => setNewCoffee({ ...newCoffee, price: e.target.value })}
-                      placeholder="Enter price"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="coffee-description">Description</Label>
-                    <Textarea
-                      id="coffee-description"
-                      value={newCoffee.description}
-                      onChange={(e) => setNewCoffee({ ...newCoffee, description: e.target.value })}
-                      placeholder="Enter coffee description"
-                      rows={3}
-                    />
-                  </div>
-                  <Button onClick={handleAddCoffee} className="w-full button-press">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Coffee Option
-                  </Button>
-                </CardContent>
-              </Card>
+          <TabsContent value="stats" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Detailed Statistics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">More detailed statistics and charts can be added here.</p>
+                {/* Placeholder for future charts/graphs */}
+                <div className="h-64 w-full bg-muted rounded-md flex items-center justify-center text-muted-foreground mt-4">
+                  Charts and Graphs Placeholder
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Current Coffee Options</CardTitle>
-                  <CardDescription>Manage your coffee menu ({coffeeOptions.length} items)</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {coffeeOptions.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">No coffee options found</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {coffeeOptions.map((coffee) => (
-                        <div key={coffee.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div className="flex-1">
-                            <p className="font-medium">{coffee.name}</p>
-                            <p className="text-sm text-gray-500">Rp {coffee.price.toLocaleString()}</p>
-                            {coffee.description && (
-                              <p className="text-xs text-muted-foreground mt-1">{coffee.description}</p>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="button-press bg-transparent">
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Edit Coffee Option</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <div className="space-y-2">
-                                    <Label>Coffee Name</Label>
-                                    <Input
-                                      value={editingCoffee?.name || coffee.name}
-                                      onChange={(e) => setEditingCoffee({ ...coffee, name: e.target.value })}
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label>Price (Rp)</Label>
-                                    <Input
-                                      type="number"
-                                      value={editingCoffee?.price || coffee.price}
-                                      onChange={(e) =>
-                                        setEditingCoffee({ ...coffee, price: Number.parseInt(e.target.value) })
-                                      }
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label>Description</Label>
-                                    <Textarea
-                                      value={editingCoffee?.description || coffee.description || ""}
-                                      onChange={(e) => setEditingCoffee({ ...coffee, description: e.target.value })}
-                                      rows={3}
-                                    />
-                                  </div>
-                                  <Button
-                                    onClick={() => handleEditCoffee(editingCoffee || coffee)}
-                                    className="w-full button-press"
-                                  >
-                                    Update Coffee
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleDeleteCoffee(coffee.id)}
-                              className="button-press"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+          <TabsContent value="settings" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Admin Settings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Manage admin users, change passwords, or configure system settings.
+                </p>
+                {/* Placeholder for future settings */}
+                <div className="h-32 w-full bg-muted rounded-md flex items-center justify-center text-muted-foreground mt-4">
+                  Settings Options Placeholder
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </PageWrapper>
   )
 }

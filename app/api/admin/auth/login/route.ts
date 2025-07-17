@@ -1,11 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
 import bcrypt from "bcryptjs"
-import { neon } from "@neondatabase/serverless"
-import { createSession } from "@/lib/auth"
+import { getAdminUser, sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { username, password } = await request.json()
 
@@ -13,41 +11,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Username and password are required" }, { status: 400 })
     }
 
-    // Find admin user
-    const users = await sql`
-      SELECT id, username, email, password_hash, full_name, role, is_active
-      FROM admin_users 
-      WHERE username = ${username} AND is_active = true
+    const user = await getAdminUser(username)
+
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
+    }
+
+    // Create a session token (simple example, consider JWT or more robust session management)
+    const sessionToken = crypto.randomUUID()
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24) // 24 hours
+
+    await sql`
+      INSERT INTO admin_sessions (user_id, session_token, expires_at)
+      VALUES (${user.id}, ${sessionToken}, ${expiresAt})
     `
 
-    if (users.length === 0) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
-    }
-
-    const user = users[0]
-
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash)
-
-    if (!isValidPassword) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
-    }
-
-    // Create session
-    await createSession(user.id.toString(), user.username)
-
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        full_name: user.full_name,
-        role: user.role,
-      },
+    cookies().set("admin-session", sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      expires: expiresAt,
+      path: "/",
     })
+
+    return NextResponse.json({ message: "Login successful" })
   } catch (error) {
-    console.error("Login error:", error)
+    console.error("Login API error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -20,7 +20,6 @@ const config = {
     },
     extend: {
       colors: {
-        // Vercel-inspired color palette
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -54,33 +53,22 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Coffee-themed colors with Vercel aesthetic
         coffee: {
-          50: "#fefdf8",
-          100: "#fdf9ed",
-          200: "#f9f0d4",
-          300: "#f4e4b8",
-          400: "#edd292",
-          500: "#e4bc6a",
-          600: "#d4a145",
-          700: "#b8853a",
-          800: "#956a35",
-          900: "#7a5731",
-          950: "#422e18",
+          50: "hsl(var(--coffee-50))",
+          100: "hsl(var(--coffee-100))",
+          200: "hsl(var(--coffee-200))",
+          300: "hsl(var(--coffee-300))",
+          400: "hsl(var(--coffee-400))",
+          500: "hsl(var(--coffee-500))",
+          600: "hsl(var(--coffee-600))",
+          700: "hsl(var(--coffee-700))",
+          800: "hsl(var(--coffee-800))",
+          900: "hsl(var(--coffee-900))",
+          950: "hsl(var(--coffee-950))",
         },
-        // Vercel grays
-        gray: {
-          50: "#fafafa",
-          100: "#f5f5f5",
-          200: "#e5e5e5",
-          300: "#d4d4d4",
-          400: "#a3a3a3",
-          500: "#737373",
-          600: "#525252",
-          700: "#404040",
-          800: "#262626",
-          900: "#171717",
-          950: "#0a0a0a",
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
         },
       },
       borderRadius: {
@@ -101,20 +89,6 @@ const config = {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-      },
-      fontFamily: {
-        sans: [
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "Segoe UI",
-          "Noto Sans",
-          "Helvetica",
-          "Arial",
-          "sans-serif",
-          "Apple Color Emoji",
-          "Segoe UI Emoji",
-        ],
-        mono: ["SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", "Courier", "monospace"],
       },
     },
   },

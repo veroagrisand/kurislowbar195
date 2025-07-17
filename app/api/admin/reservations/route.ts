@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server"
-import { getReservations, getReservationStats } from "@/lib/db"
+import { getReservationsForAdmin } from "@/lib/db"
+import { getAdminSession } from "@/lib/auth"
 
 export async function GET() {
   try {
-    const reservations = await getReservations(100) // Get more reservations for admin
-    const stats = await getReservationStats()
+    const session = await getAdminSession()
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
-    return NextResponse.json({
-      reservations,
-      stats,
-    })
+    const { reservations, stats } = await getReservationsForAdmin()
+    return NextResponse.json({ reservations, stats })
   } catch (error) {
     console.error("Error fetching admin reservations:", error)
-    return NextResponse.json({ error: "Failed to fetch reservations" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch admin data" }, { status: 500 })
   }
 }

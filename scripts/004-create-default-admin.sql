@@ -1,10 +1,21 @@
--- Insert default admin user
--- Password: admin123 (change this immediately after first login)
-INSERT INTO admin_users (username, email, password_hash, full_name, role)
-VALUES (
-    'admin',
-    'admin@kuricoffee.com',
-    '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj3QJK9fHQe.',
-    'Administrator',
-    'admin'
-) ON CONFLICT (username) DO NOTHING;
+-- This script should be run only once to create the initial admin user.
+-- In a production environment, ensure this is handled securely (e.g., via environment variables or a setup process).
+
+-- Check if the default admin user already exists to prevent duplicates
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM admin_users WHERE username = 'admin') THEN
+        -- Hash the default password 'password123'
+        -- You should replace 'password123' with a strong, randomly generated password
+        -- and store it securely, e.g., in environment variables.
+        INSERT INTO admin_users (username, password_hash, email, full_name, role, is_active)
+        VALUES (
+            'admin',
+            crypt('password123', gen_salt('bf')), -- 'password123' is the default password
+            'admin@example.com',
+            'Default Admin',
+            'admin',
+            TRUE
+        );
+    END IF;
+END $$;

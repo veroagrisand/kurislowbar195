@@ -4,41 +4,19 @@ import type React from "react"
 
 import { motion } from "framer-motion"
 
-interface PageWrapperProps {
+interface PageWrapperProps extends React.ComponentProps<typeof motion.div> {
   children: React.ReactNode
-  className?: string
 }
 
-const pageVariants = {
-  initial: {
-    opacity: 0,
-    y: 20,
-  },
-  in: {
-    opacity: 1,
-    y: 0,
-  },
-  out: {
-    opacity: 0,
-    y: -20,
-  },
-}
-
-const pageTransition = {
-  type: "tween",
-  ease: "anticipate",
-  duration: 0.5,
-}
-
-export function PageWrapper({ children, className = "" }: PageWrapperProps) {
+export function PageWrapper({ children, className, ...props }: PageWrapperProps) {
   return (
     <motion.div
-      initial="initial"
-      animate="in"
-      exit="out"
-      variants={pageVariants}
-      transition={pageTransition}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
       className={className}
+      {...props}
     >
       {children}
     </motion.div>

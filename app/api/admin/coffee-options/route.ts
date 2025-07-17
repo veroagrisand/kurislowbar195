@@ -1,107 +1,85 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db"
-import { revalidatePath } from "next/cache" // Import revalidatePath
+import { NextResponse } from "next/server"
+import { getCoffeeOptions, addCoffeeOption, updateCoffeeOption, deleteCoffeeOption } from "@/lib/db"
+import { getAdminSession } from "@/lib/auth"
+import { revalidatePath } from "next/cache"
 
-export async function POST(request: NextRequest) {
+export async function GET() {
   try {
-    const body = await request.json()
-    const { name, price, description } = body
-
-    if (!name || !price) {
-      return NextResponse.json({ error: "Name and price are required" }, { status: 400 })
+    const session = await getAdminSession()
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Generate ID from name
-    const id = name
-      .toLowerCase()
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9-]/g, "")
-
-    // Check if coffee option already exists
-    const existing = await sql`
-      SELECT id FROM coffee_options WHERE id = ${id}
-    `
-
-    if (existing.length > 0) {
-      return NextResponse.json({ error: "Coffee option with this name already exists" }, { status: 400 })
-    }
-
-    // Insert new coffee option
-    const result = await sql`
-      INSERT INTO coffee_options (id, name, price, description)
-      VALUES (${id}, ${name}, ${Number.parseInt(price)}, ${description || null})
-      RETURNING *
-    `
-
-    // Revalidate paths after successful creation
-    revalidatePath("/")
-    revalidatePath("/reservation")
-    revalidatePath("/admin") // <--- Added: Revalidate admin page
-
-    return NextResponse.json({ coffeeOption: result[0] })
+    const coffeeOptions = await getCoffeeOptions()
+    return NextResponse.json({ coffeeOptions })
   } catch (error) {
-    console.error("Error creating coffee option:", error)
-    return NextResponse.json({ error: "Failed to create coffee option" }, { status: 500 })
+    console.error("Error fetching coffee options for admin:", error)
+    return NextResponse.json({ error: "Failed to fetch coffee options" }, { status: 500 })
   }
 }
 
-export async function PUT(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { id, name, price, description } = body
-
-    if (!id || !name || !price) {
-      return NextResponse.json({ error: "ID, name and price are required" }, { status: 400 })
+    const session = await getAdminSession()
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Update coffee option
-    const result = await sql`
-      UPDATE coffee_options 
-      SET name = ${name}, price = ${Number.parseInt(price)}, description = ${description || null}, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${id}
-      RETURNING *
-    `
-
-    if (result.length === 0) {
-      return NextResponse.json({ error: "Coffee option not found" }, { status: 404 })
+    const { name, price, description } = await request.json()
+    if (!name || price === undefined) {
+      return NextResponse.json({ error: "Name and price are required" }, { status: 400 })
     }
 
-    // Revalidate paths after successful update
+    const newCoffee = await addCoffeeOption(name, price, description)
+    revalidatePath("/admin") // Revalidate admin dashboard
+    revalidatePath("/") // Revalidate public landing page
+    revalidatePath("/reservation") // Revalidate reservation page
+    return NextResponse.json({ newCoffee }, { status: 201 })
+  } catch (error) {
+    console.error("Error adding coffee option:", error)
+    return NextResponse.json({ error: "Failed to add coffee option" }, { status: 500 })
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const session = await getAdminSession()
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id, name, price, description, is_active } = await request.json()
+    if (!id || !name || price === undefined || is_active === undefined) {
+      return NextResponse.json({ error: "ID, name, price, and active status are required" }, { status: 400 })
+    }
+
+    const updatedCoffee = await updateCoffeeOption(id, name, price, description, is_active)
+    revalidatePath("/admin")
     revalidatePath("/")
     revalidatePath("/reservation")
-    revalidatePath("/admin") // <--- Added: Revalidate admin page
-
-    return NextResponse.json({ coffeeOption: result[0] })
+    return NextResponse.json({ updatedCoffee })
   } catch (error) {
     console.error("Error updating coffee option:", error)
     return NextResponse.json({ error: "Failed to update coffee option" }, { status: 500 })
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get("id")
+    const session = await getAdminSession()
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
+    const { id } = await request.json()
     if (!id) {
-      return NextResponse.json({ error: "Coffee option ID is required" }, { status: 400 })
+      return NextResponse.json({ error: "ID is required" }, { status: 400 })
     }
 
-    // Delete coffee option
-    const result = await sql`
-      DELETE FROM coffee_options WHERE id = ${id}
-      RETURNING *
-    `
-
-    if (result.length === 0) {
-      return NextResponse.json({ error: "Coffee option not found" }, { status: 404 })
-    }
-
-    // Revalidate paths after successful deletion
+    await deleteCoffeeOption(id)
+    revalidatePath("/admin")
     revalidatePath("/")
     revalidatePath("/reservation")
-    revalidatePath("/admin") // <--- Added: Revalidate admin page
-
     return NextResponse.json({ message: "Coffee option deleted successfully" })
   } catch (error) {
     console.error("Error deleting coffee option:", error)

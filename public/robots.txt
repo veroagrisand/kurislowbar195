@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://kurislowbar195.tech/sitemap.xml # Replace with your actual domain

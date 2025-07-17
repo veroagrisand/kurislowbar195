@@ -1,5 +1,6 @@
 import { cookies } from "next/headers"
 import { SignJWT, jwtVerify } from "jose"
+import { findValidSession } from "@/lib/db"
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "your-secret-key-change-this-in-production")
 
@@ -59,4 +60,14 @@ export async function verifySession() {
 export async function deleteSession() {
   const cookieStore = await cookies()
   cookieStore.delete("admin-session")
+}
+
+export async function getAdminSession() {
+  const sessionToken = cookies().get("admin-session")?.value
+  if (!sessionToken) {
+    return null
+  }
+
+  const session = await findValidSession(sessionToken)
+  return session
 }
