@@ -4,11 +4,12 @@ import "./globals.css"
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Navbar } from "@/components/navbar"
+import { ResizeObserverFix } from "@/components/resize-observer-fix"
 
 export const metadata: Metadata = {
   title: "Coffee Kuri Slowbar 195 - Reservation System",
   description: "Reserve your perfect coffee experience at Coffee Kuri Slowbar 195",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -20,6 +21,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange={false}>
+          {/* Suppress Chrome ResizeObserver dev-console noise */}
+          <ResizeObserverFix />
+
           <Navbar />
           {children}
           <Toaster />

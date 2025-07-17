@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db"
+import { createCoffeeOption, updateCoffeeOption, deleteCoffeeOption } from "@/lib/db"
+import { sql } from "@vercel/postgres"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,29 +11,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name and price are required" }, { status: 400 })
     }
 
+    // Validate price is a positive number
+    const numPrice = Number(price)
+    if (isNaN(numPrice) || numPrice <= 0) {
+      return NextResponse.json({ error: "Price must be a positive number" }, { status: 400 })
+    }
+
     // Generate ID from name
     const id = name
       .toLowerCase()
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9-]/g, "")
+      .substring(0, 50) // Limit length
+
+    if (!id) {
+      return NextResponse.json({ error: "Invalid coffee name" }, { status: 400 })
+    }
 
     // Check if coffee option already exists
     const existing = await sql`
-      SELECT id FROM coffee_options WHERE id = ${id}
+      SELECT id FROM coffee_options WHERE id = ${id} AND is_active = true
     `
 
     if (existing.length > 0) {
       return NextResponse.json({ error: "Coffee option with this name already exists" }, { status: 400 })
     }
 
-    // Insert new coffee option
-    const result = await sql`
-      INSERT INTO coffee_options (id, name, price, description)
-      VALUES (${id}, ${name}, ${Number.parseInt(price)}, ${description || null})
-      RETURNING *
-    `
+    // Create new coffee option
+    const coffeeOption = await createCoffeeOption({
+      id,
+      name: name.trim(),
+      price: numPrice,
+      description: description?.trim() || null,
+    })
 
-    return NextResponse.json({ coffeeOption: result[0] })
+    return NextResponse.json({ coffeeOption })
   } catch (error) {
     console.error("Error creating coffee option:", error)
     return NextResponse.json({ error: "Failed to create coffee option" }, { status: 500 })
@@ -48,19 +61,25 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "ID, name and price are required" }, { status: 400 })
     }
 
-    // Update coffee option
-    const result = await sql`
-      UPDATE coffee_options 
-      SET name = ${name}, price = ${Number.parseInt(price)}, description = ${description || null}, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${id}
-      RETURNING *
-    `
+    // Validate price is a positive number
+    const numPrice = Number(price)
+    if (isNaN(numPrice) || numPrice <= 0) {
+      return NextResponse.json({ error: "Price must be a positive number" }, { status: 400 })
+    }
 
-    if (result.length === 0) {
+    // Update coffee option
+    const coffeeOption = await updateCoffeeOption({
+      id: id.trim(),
+      name: name.trim(),
+      price: numPrice,
+      description: description?.trim() || null,
+    })
+
+    if (!coffeeOption) {
       return NextResponse.json({ error: "Coffee option not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ coffeeOption: result[0] })
+    return NextResponse.json({ coffeeOption })
   } catch (error) {
     console.error("Error updating coffee option:", error)
     return NextResponse.json({ error: "Failed to update coffee option" }, { status: 500 })
@@ -76,13 +95,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Coffee option ID is required" }, { status: 400 })
     }
 
-    // Delete coffee option
-    const result = await sql`
-      DELETE FROM coffee_options WHERE id = ${id}
-      RETURNING *
-    `
+    // Delete coffee option (soft delete)
+    const success = await deleteCoffeeOption(id)
 
-    if (result.length === 0) {
+    if (!success) {
       return NextResponse.json({ error: "Coffee option not found" }, { status: 404 })
     }
 

@@ -1,18 +1,16 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Calendar, Clock, Users, Coffee, CreditCard, AlertCircle } from "lucide-react"
-import { motion } from "framer-motion"
+import { Calendar, Coffee, ArrowRight, MapPin, Phone, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { PageWrapper } from "@/components/page-wrapper"
 import { AnimatedCard } from "@/components/animated-card"
@@ -24,48 +22,29 @@ interface CoffeeOption {
   description?: string
 }
 
-interface TimeSlotAvailability {
+interface TimeSlot {
   time: string
   available_spots: number
   is_available: boolean
 }
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.5,
-    },
-  },
-}
-
 export default function ReservationPage() {
-  const router = useRouter()
   const { toast } = useToast()
+  const router = useRouter()
+
   const [coffeeOptions, setCoffeeOptions] = useState<CoffeeOption[]>([])
-  const [timeSlots, setTimeSlots] = useState<TimeSlotAvailability[]>([])
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [loading, setLoading] = useState(false)
-  const [loadingTimeSlots, setLoadingTimeSlots] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     email: "",
     date: "",
     time: "",
-    people: "",
-    coffee: "",
+    people: "1",
+    coffee_id: "",
     notes: "",
   })
 
@@ -76,8 +55,6 @@ export default function ReservationPage() {
   useEffect(() => {
     if (formData.date) {
       fetchTimeSlots(formData.date)
-    } else {
-      setTimeSlots([])
     }
   }, [formData.date])
 
@@ -85,85 +62,87 @@ export default function ReservationPage() {
     try {
       const response = await fetch("/api/coffee-options")
       const data = await response.json()
-      setCoffeeOptions(data.coffeeOptions)
+
+      if (response.ok) {
+        setCoffeeOptions(data.coffeeOptions || [])
+      } else {
+        throw new Error(data.error || "Failed to fetch coffee options")
+      }
     } catch (error) {
       console.error("Error fetching coffee options:", error)
       toast({
         title: "Error",
-        description: "Failed to load coffee options",
+        description: "Failed to load coffee options. Please refresh the page.",
         variant: "destructive",
       })
     }
   }
 
   const fetchTimeSlots = async (date: string) => {
-    setLoadingTimeSlots(true)
+    setLoading(true)
     try {
       const response = await fetch(`/api/time-slots?date=${date}`)
       const data = await response.json()
 
       if (response.ok) {
-        setTimeSlots(data.availability)
-
-        // If currently selected time is no longer available, clear it
-        if (formData.time) {
-          const selectedSlot = data.availability.find((slot: TimeSlotAvailability) => slot.time === formData.time)
-          if (!selectedSlot?.is_available || selectedSlot.available_spots < Number.parseInt(formData.people || "1")) {
-            setFormData((prev) => ({ ...prev, time: "" }))
-            toast({
-              title: "Time slot unavailable",
-              description: "Your selected time slot is no longer available. Please choose another time.",
-              variant: "destructive",
-            })
-          }
-        }
+        setTimeSlots(data.timeSlots || [])
+      } else {
+        throw new Error(data.error || "Failed to fetch time slots")
       }
     } catch (error) {
       console.error("Error fetching time slots:", error)
       toast({
         title: "Error",
-        description: "Failed to load time slot availability",
+        description: "Failed to load available time slots",
         variant: "destructive",
       })
     } finally {
-      setLoadingTimeSlots(false)
+      setLoading(false)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-
-    // Validation
-    if (!formData.name || !formData.phone || !formData.date || !formData.time || !formData.people || !formData.coffee) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      })
-      setLoading(false)
-      return
-    }
-
-    // Check if selected time slot is still available
-    const selectedSlot = timeSlots.find((slot) => slot.time === formData.time)
-    if (!selectedSlot?.is_available || selectedSlot.available_spots < Number.parseInt(formData.people)) {
-      toast({
-        title: "Time slot unavailable",
-        description: "This time slot is no longer available. Please refresh and choose another time.",
-        variant: "destructive",
-      })
-      setLoading(false)
-      return
-    }
+    setSubmitting(true)
 
     try {
+      // Validate required fields
+      if (!formData.name || !formData.phone || !formData.date || !formData.time || !formData.coffee_id) {
+        throw new Error("Please fill in all required fields")
+      }
+
+      // Get selected coffee option
+      const selectedCoffee = coffeeOptions.find((coffee) => coffee.id === formData.coffee_id)
+      if (!selectedCoffee) {
+        throw new Error("Please select a coffee option")
+      }
+
+      // Calculate total amount
+      const people = Number.parseInt(formData.people)
+      const totalAmount = selectedCoffee.price * people
+
+      // Prepare reservation data
+      const reservationData = {
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email || undefined,
+        date: formData.date,
+        time: formData.time,
+        people,
+        coffee_id: formData.coffee_id,
+        coffee_name: selectedCoffee.name,
+        coffee_price: selectedCoffee.price,
+        total_amount: totalAmount,
+        notes: formData.notes || undefined,
+      }
+
+      // Submit reservation
       const response = await fetch("/api/reservations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(reservationData),
       })
 
       const data = await response.json()
@@ -172,15 +151,13 @@ export default function ReservationPage() {
         throw new Error(data.error || "Failed to create reservation")
       }
 
-      // Store reservation ID for payment page
-      localStorage.setItem("currentReservationId", data.reservation.id.toString())
-
+      // Success - redirect to confirmation page
       toast({
-        title: "Success",
-        description: "Reservation created successfully!",
+        title: "Reservation Created!",
+        description: "Your reservation has been successfully created.",
       })
 
-      router.push("/payment")
+      router.push(`/confirmation?id=${data.reservation.id}`)
     } catch (error) {
       console.error("Error creating reservation:", error)
       toast({
@@ -188,280 +165,268 @@ export default function ReservationPage() {
         description: error instanceof Error ? error.message : "Failed to create reservation",
         variant: "destructive",
       })
-
-      // Refresh time slots in case availability changed
-      if (formData.date) {
-        fetchTimeSlots(formData.date)
-      }
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
-  const selectedCoffee = coffeeOptions.find((c) => c.id === formData.coffee)
-  const totalAmount = selectedCoffee ? selectedCoffee.price * Number.parseInt(formData.people || "1") : 0
+  const selectedCoffee = coffeeOptions.find((coffee) => coffee.id === formData.coffee_id)
+  const totalAmount = selectedCoffee ? selectedCoffee.price * Number.parseInt(formData.people) : 0
 
-  const getTimeSlotDisplay = (slot: TimeSlotAvailability) => {
-    if (!slot.is_available) {
-      return `${slot.time} - Fully Booked`
-    }
-    return `${slot.time} - ${slot.available_spots} spots left`
-  }
-
-  const isTimeSlotDisabled = (slot: TimeSlotAvailability) => {
-    if (!slot.is_available) return true
-    if (!formData.people) return false
-    return slot.available_spots < Number.parseInt(formData.people)
-  }
+  // Get minimum date (today)
+  const today = new Date().toISOString().split("T")[0]
 
   return (
-    <PageWrapper className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <div className="max-w-2xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-6 sm:mb-8"
-        >
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">Make a Reservation</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Coffee Kuri Slowbar 195</p>
-          <div className="mt-4 flex gap-3 justify-center">
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button variant="outline" onClick={() => router.push("/")} className="button-press text-sm sm:text-base">
-                Back to Home
-              </Button>
-            </motion.div>
+    <PageWrapper>
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-gray-900 dark:to-gray-800 py-12">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Make a Reservation</h1>
+            <p className="text-lg text-gray-600 dark:text-gray-300">
+              Reserve your table and enjoy our premium coffee experience
+            </p>
           </div>
-        </motion.div>
 
-        <AnimatedCard delay={0.2}>
-          <CardHeader className="pb-4 sm:pb-6">
-            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-              <motion.div
-                initial={{ rotate: -180, scale: 0 }}
-                animate={{ rotate: 0, scale: 1 }}
-                transition={{ delay: 0.5, type: "spring" }}
-              >
-                <Coffee className="h-4 w-4 sm:h-5 sm:w-5" />
-              </motion.div>
-              Table Reservation
-            </CardTitle>
-            <CardDescription className="text-sm sm:text-base">
-              Book your table and select your preferred coffee beans
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Alert className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Booking Policy:</strong> Each time slot can accommodate maximum 5 people total. Once a time slot
-                reaches capacity, it will be unavailable for booking.
-              </AlertDescription>
-            </Alert>
-
-            <motion.form
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-              onSubmit={handleSubmit}
-              className="space-y-4 sm:space-y-6"
-            >
-              <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm sm:text-base">
-                    Full Name *
-                  </Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Enter your full name"
-                    required
-                    className="text-sm sm:text-base"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-sm sm:text-base">
-                    Phone Number *
-                  </Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="Enter your phone number"
-                    required
-                    className="text-sm sm:text-base"
-                  />
-                </div>
-              </motion.div>
-
-              <motion.div variants={itemVariants} className="space-y-2">
-                <Label htmlFor="email" className="text-sm sm:text-base">
-                  Email Address
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="Enter your email address"
-                  className="text-sm sm:text-base"
-                />
-              </motion.div>
-
-              <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="date" className="flex items-center gap-2 text-sm sm:text-base">
-                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                    Date *
-                  </Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value, time: "" })}
-                    min={new Date().toISOString().split("T")[0]}
-                    required
-                    className="text-sm sm:text-base"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="people" className="flex items-center gap-2 text-sm sm:text-base">
-                    <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                    People *
-                  </Label>
-                  <Select
-                    value={formData.people}
-                    onValueChange={(value) => setFormData({ ...formData, people: value, time: "" })}
-                  >
-                    <SelectTrigger className="text-sm sm:text-base">
-                      <SelectValue placeholder="Number" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[1, 2, 3, 4, 5].map((num) => (
-                        <SelectItem key={num} value={num.toString()} className="text-sm sm:text-base">
-                          {num} {num === 1 ? "person" : "people"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="time" className="flex items-center gap-2 text-sm sm:text-base">
-                    <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                    Time *
-                  </Label>
-                  <Select
-                    value={formData.time}
-                    onValueChange={(value) => setFormData({ ...formData, time: value })}
-                    disabled={!formData.date || !formData.people || loadingTimeSlots}
-                  >
-                    <SelectTrigger className="text-sm sm:text-base">
-                      <SelectValue placeholder={loadingTimeSlots ? "Loading..." : "Select time"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {timeSlots.map((slot) => (
-                        <SelectItem
-                          key={slot.time}
-                          value={slot.time}
-                          className="text-sm sm:text-base"
-                          disabled={isTimeSlotDisabled(slot)}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span>{getTimeSlotDisplay(slot)}</span>
-                            {!slot.is_available && (
-                              <Badge variant="destructive" className="ml-2 text-xs">
-                                Full
-                              </Badge>
-                            )}
-                            {slot.is_available && slot.available_spots <= 2 && (
-                              <Badge variant="outline" className="ml-2 text-xs">
-                                Limited
-                              </Badge>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </motion.div>
-
-              <motion.div variants={itemVariants} className="space-y-2">
-                <Label htmlFor="coffee" className="text-sm sm:text-base">
-                  Coffee Selection *
-                </Label>
-                <Select value={formData.coffee} onValueChange={(value) => setFormData({ ...formData, coffee: value })}>
-                  <SelectTrigger className="text-sm sm:text-base">
-                    <SelectValue placeholder="Choose your coffee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {coffeeOptions.map((coffee) => (
-                      <SelectItem key={coffee.id} value={coffee.id} className="text-sm sm:text-base">
-                        {coffee.name} - Rp {coffee.price.toLocaleString()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </motion.div>
-
-              <motion.div variants={itemVariants} className="space-y-2">
-                <Label htmlFor="notes" className="text-sm sm:text-base">
-                  Special Notes
-                </Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Any special requests or dietary requirements..."
-                  rows={3}
-                  className="text-sm sm:text-base resize-none"
-                />
-              </motion.div>
-
-              {totalAmount > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <Card className="bg-coffee-50 dark:bg-coffee-950 border-coffee-200 dark:border-coffee-800">
-                    <CardContent className="pt-4 sm:pt-6">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-sm sm:text-base">Total Amount:</span>
-                        <motion.span
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ delay: 0.2, type: "spring" }}
-                          className="text-xl sm:text-2xl font-bold text-coffee-600"
-                        >
-                          Rp {totalAmount.toLocaleString()}
-                        </motion.span>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Reservation Form */}
+            <div className="lg:col-span-2">
+              <AnimatedCard>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      Reservation Details
+                    </CardTitle>
+                    <CardDescription>Fill in your reservation information</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                      {/* Personal Information */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Full Name *</Label>
+                          <Input
+                            id="name"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            placeholder="Enter your full name"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="phone">Phone Number *</Label>
+                          <Input
+                            id="phone"
+                            type="tel"
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            placeholder="Enter your phone number"
+                            required
+                          />
+                        </div>
                       </div>
-                      <p className="text-xs sm:text-sm text-coffee-700 dark:text-coffee-300 mt-2">
-                        {selectedCoffee?.name} × {formData.people} people
-                      </p>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
 
-              <motion.div variants={itemVariants}>
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button
-                    type="submit"
-                    className="w-full button-press text-sm sm:text-base"
-                    size="lg"
-                    disabled={loading || loadingTimeSlots}
-                  >
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    {loading ? "Creating Reservation..." : "Proceed to Payment"}
-                  </Button>
-                </motion.div>
-              </motion.div>
-            </motion.form>
-          </CardContent>
-        </AnimatedCard>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email Address</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          placeholder="Enter your email (optional)"
+                        />
+                      </div>
+
+                      {/* Date and Time */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="date">Date *</Label>
+                          <Input
+                            id="date"
+                            type="date"
+                            min={today}
+                            value={formData.date}
+                            onChange={(e) => setFormData({ ...formData, date: e.target.value, time: "" })}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="time">Time *</Label>
+                          <Select
+                            value={formData.time}
+                            onValueChange={(value) => setFormData({ ...formData, time: value })}
+                            disabled={!formData.date || loading}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={loading ? "Loading..." : "Select time"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {timeSlots.map((slot) => (
+                                <SelectItem
+                                  key={slot.time}
+                                  value={slot.time}
+                                  disabled={!slot.is_available}
+                                  className={!slot.is_available ? "opacity-50" : ""}
+                                >
+                                  {slot.time} {slot.is_available ? `(${slot.available_spots} spots left)` : "(Full)"}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* People and Coffee */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="people">Number of People *</Label>
+                          <Select
+                            value={formData.people}
+                            onValueChange={(value) => setFormData({ ...formData, people: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[1, 2, 3, 4, 5].map((num) => (
+                                <SelectItem key={num} value={num.toString()}>
+                                  {num} {num === 1 ? "Person" : "People"}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="coffee">Coffee Selection *</Label>
+                          <Select
+                            value={formData.coffee_id}
+                            onValueChange={(value) => setFormData({ ...formData, coffee_id: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select coffee" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {coffeeOptions.map((coffee) => (
+                                <SelectItem key={coffee.id} value={coffee.id}>
+                                  {coffee.name} - Rp {coffee.price.toLocaleString()}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Special Notes */}
+                      <div className="space-y-2">
+                        <Label htmlFor="notes">Special Notes</Label>
+                        <Textarea
+                          id="notes"
+                          value={formData.notes}
+                          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                          placeholder="Any special requests or dietary requirements..."
+                          rows={3}
+                        />
+                      </div>
+
+                      <Button type="submit" className="w-full" size="lg" disabled={submitting}>
+                        {submitting ? (
+                          "Creating Reservation..."
+                        ) : (
+                          <>
+                            Create Reservation
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </>
+                        )}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              </AnimatedCard>
+            </div>
+
+            {/* Summary and Info */}
+            <div className="space-y-6">
+              {/* Reservation Summary */}
+              <AnimatedCard>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Coffee className="h-5 w-5" />
+                      Reservation Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {formData.name && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Name:</span>
+                        <span className="font-medium">{formData.name}</span>
+                      </div>
+                    )}
+                    {formData.date && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Date:</span>
+                        <span className="font-medium">{formData.date}</span>
+                      </div>
+                    )}
+                    {formData.time && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Time:</span>
+                        <span className="font-medium">{formData.time}</span>
+                      </div>
+                    )}
+                    {formData.people && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">People:</span>
+                        <span className="font-medium">{formData.people}</span>
+                      </div>
+                    )}
+                    {selectedCoffee && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Coffee:</span>
+                        <span className="font-medium">{selectedCoffee.name}</span>
+                      </div>
+                    )}
+                    {totalAmount > 0 && (
+                      <>
+                        <hr />
+                        <div className="flex justify-between text-lg font-bold">
+                          <span>Total:</span>
+                          <span>Rp {totalAmount.toLocaleString()}</span>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </AnimatedCard>
+
+              {/* Contact Information */}
+              <AnimatedCard>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Contact Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-gray-500" />
+                      <span>+62 123 456 789</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Mail className="h-4 w-4 text-gray-500" />
+                      <span>info@kuricoffee195.com</span>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-4 w-4 text-gray-500 mt-1" />
+                      <span>Jl. Coffee Street No. 195, Jakarta, Indonesia</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </AnimatedCard>
+            </div>
+          </div>
+        </div>
       </div>
     </PageWrapper>
   )

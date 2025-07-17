@@ -116,7 +116,11 @@ export default function AdminPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(newCoffee),
+        body: JSON.stringify({
+          name: newCoffee.name,
+          price: newCoffee.price,
+          description: newCoffee.description,
+        }),
       })
 
       const data = await response.json()
@@ -125,6 +129,7 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to add coffee option")
       }
 
+      // Add to local state
       setCoffeeOptions([...coffeeOptions, data.coffeeOption])
       setNewCoffee({ name: "", price: "", description: "" })
 
@@ -158,6 +163,7 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to update coffee option")
       }
 
+      // Update local state
       setCoffeeOptions(coffeeOptions.map((c) => (c.id === coffee.id ? data.coffeeOption : c)))
       setEditingCoffee(null)
 
@@ -190,6 +196,7 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to delete coffee option")
       }
 
+      // Remove from local state
       setCoffeeOptions(coffeeOptions.filter((c) => c.id !== id))
 
       toast({
@@ -270,11 +277,19 @@ export default function AdminPage() {
             <p className="text-muted-foreground">kurislowbar195 Management</p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={fetchData} className="flex items-center gap-2 button-press">
+            <Button
+              variant="outline"
+              onClick={fetchData}
+              className="flex items-center gap-2 button-press bg-transparent"
+            >
               <RefreshCw className="h-4 w-4" />
               Refresh
             </Button>
-            <Button variant="outline" onClick={handleLogout} className="flex items-center gap-2 button-press">
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="flex items-center gap-2 button-press bg-transparent"
+            >
               <LogOut className="h-4 w-4" />
               Logout
             </Button>
@@ -388,7 +403,7 @@ export default function AdminPage() {
                               <div className="flex gap-2">
                                 <Dialog>
                                   <DialogTrigger asChild>
-                                    <Button size="sm" variant="outline" className="button-press">
+                                    <Button size="sm" variant="outline" className="button-press bg-transparent">
                                       <Eye className="h-3 w-3" />
                                     </Button>
                                   </DialogTrigger>
@@ -552,7 +567,7 @@ export default function AdminPage() {
                           <div className="flex gap-2">
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="button-press">
+                                <Button size="sm" variant="outline" className="button-press bg-transparent">
                                   <Edit className="h-3 w-3" />
                                 </Button>
                               </DialogTrigger>
