@@ -83,7 +83,7 @@ export default function ReservationPage() {
 
   const fetchCoffeeOptions = async () => {
     try {
-      const response = await fetch("/api/coffee-options")
+      const response = await fetch("/api/coffee-options", { cache: "no-store" }) // Added cache: 'no-store'
       const data = await response.json()
       setCoffeeOptions(data.coffeeOptions)
     } catch (error) {

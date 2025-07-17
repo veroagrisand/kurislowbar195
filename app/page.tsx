@@ -105,9 +105,9 @@ export default function LandingPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/coffee-options")
+        const res = await fetch("/api/coffee-options", { cache: "no-store" }) // Added cache: 'no-store'
         const data = await res.json()
-        setCoffeeOptions(data.coffeeOptions) // Corrected: Access the 'coffeeOptions' property
+        setCoffeeOptions(data.coffeeOptions)
       } catch (err) {
         console.error("Failed to load coffee options:", err)
       } finally {
