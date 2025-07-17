@@ -3,7 +3,7 @@ import { getReservations, getReservationStats } from "@/lib/db"
 
 export async function GET() {
   try {
-    const reservations = await getReservations()
+    const reservations = await getReservations(100) // Get more reservations for admin
     const stats = await getReservationStats()
 
     return NextResponse.json({

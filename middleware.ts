@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-  // protect every /admin route except the login page
+  // Protect admin routes
   if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
-    const hasSession = req.cookies.has("admin-session")
-    if (!hasSession) {
-      return NextResponse.redirect(new URL("/admin/login", req.url))
+    const sessionToken = request.cookies.get("admin-session")?.value
+
+    if (!sessionToken) {
+      return NextResponse.redirect(new URL("/admin/login", request.url))
     }
   }
+
   return NextResponse.next()
 }
 
-export const config = { matcher: ["/admin/:path*"] }
+export const config = {
+  matcher: ["/admin/:path*"],
+}

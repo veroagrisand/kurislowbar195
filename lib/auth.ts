@@ -1,50 +1,62 @@
 import { cookies } from "next/headers"
 import { SignJWT, jwtVerify } from "jose"
 
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || "replace-this-secret")
+const secret = new TextEncoder().encode(process.env.JWT_SECRET || "your-secret-key-change-this-in-production")
 
 export interface SessionPayload {
-  userId: number
+  userId: string
   username: string
-  exp: number
+  expiresAt: Date
 }
 
-/* ------------ CREATE + STORE SESSION ------------ */
-export async function createSession(userId: number, username: string) {
-  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 // 1 h in seconds
+export async function createSession(userId: string, username: string) {
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
+  const session = await encrypt({ userId, username, expiresAt })
 
-  const token = await new SignJWT({ userId, username })
-    .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime(expiresAt)
-    .sign(secret)
-
-  cookies().set("admin-session", token, {
+  const cookieStore = await cookies()
+  cookieStore.set("admin-session", session, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
+    expires: expiresAt,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60, // 1 hour
   })
-
-  return token
 }
 
-/* ------------ VERIFY SESSION COOKIE ------------ */
-export async function verifySession(): Promise<SessionPayload | null> {
-  const raw = cookies().get("admin-session")?.value
-  if (!raw) return null
+export async function encrypt(payload: SessionPayload) {
+  return new SignJWT(payload).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("1h").sign(secret)
+}
 
+export async function decrypt(session: string | undefined = "") {
   try {
-    const { payload } = await jwtVerify<SessionPayload>(raw, secret, {
+    const { payload } = await jwtVerify(session, secret, {
       algorithms: ["HS256"],
     })
-    return payload
-  } catch {
+    return payload as SessionPayload
+  } catch (error) {
+    console.log("Failed to verify session")
     return null
   }
 }
 
-/* ------------ DESTROY SESSION ------------ */
-export function destroySession() {
-  cookies().delete("admin-session")
+export async function verifySession() {
+  const cookieStore = await cookies()
+  const cookie = cookieStore.get("admin-session")?.value
+  const session = await decrypt(cookie)
+
+  if (!session?.userId) {
+    return null
+  }
+
+  // Check if session is expired
+  if (new Date(session.expiresAt) < new Date()) {
+    return null
+  }
+
+  return { userId: session.userId, username: session.username }
+}
+
+export async function deleteSession() {
+  const cookieStore = await cookies()
+  cookieStore.delete("admin-session")
 }

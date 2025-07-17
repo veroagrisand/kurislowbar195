@@ -260,7 +260,7 @@ export default function ConfirmationPage() {
                 <li>• Please arrive 10 minutes before your reservation time</li>
                 <li>• Your table will be held for 15 minutes past reservation time</li>
                 <li>• For changes or cancellations, please call us at least 2 hours in advance</li>
-                <li>• Contact: +62 812-3456-7890</li>
+                <li>• Contact: +62 822 4604 8185</li>
               </ul>
             </motion.div>
 

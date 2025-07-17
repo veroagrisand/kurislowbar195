@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import {
@@ -24,7 +23,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { PageWrapper } from "@/components/page-wrapper"
 import { AnimatedCard } from "@/components/animated-card"
+import { useEffect, useState } from "react"
 import { GallerySection } from "@/components/gallery-section"
+
+type CoffeeOption = {
+  id: string
+  name: string
+  price: number
+  description?: string
+}
 
 const features = [
   {
@@ -46,31 +53,6 @@ const features = [
     icon: Car,
     title: "Easy Parking",
     description: "Convenient parking available for all customers",
-  },
-]
-
-const coffeeMenu = [
-  {
-    name: "Arabica House Blend",
-    price: "Rp 45,000",
-    description: "Our signature blend with notes of chocolate and caramel",
-    popular: true,
-  },
-  {
-    name: "Kopi Luwak Premium",
-    price: "Rp 85,000",
-    description: "Rare and exotic coffee with unique processing method",
-    premium: true,
-  },
-  {
-    name: "Java Preanger",
-    price: "Rp 55,000",
-    description: "Traditional Indonesian coffee with earthy undertones",
-  },
-  {
-    name: "Toraja Highland",
-    price: "Rp 65,000",
-    description: "Full-bodied coffee from the mountains of Sulawesi",
   },
 ]
 
@@ -117,7 +99,23 @@ const itemVariants = {
 }
 
 export default function LandingPage() {
-  const router = useRouter()
+  const [coffeeOptions, setCoffeeOptions] = useState<CoffeeOption[]>([])
+  const [loadingCoffee, setLoadingCoffee] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/coffee-options")
+        const data = await res.json()
+        setCoffeeOptions(data.coffeeOptions) // Corrected: Access the 'coffeeOptions' property
+      } catch (err) {
+        console.error("Failed to load coffee options:", err)
+      } finally {
+        setLoadingCoffee(false)
+      }
+    }
+    load()
+  }, [])
 
   return (
     <PageWrapper className="min-h-screen bg-background">
@@ -158,25 +156,27 @@ export default function LandingPage() {
             className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center"
           >
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                size="lg"
-                className="bg-white text-black hover:bg-gray-100 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg button-press w-full sm:w-auto"
-                onClick={() => router.push("/reservation")}
-              >
-                <Calendar className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                Reserve Your Table
-              </Button>
+              <Link href="/reservation" className="block">
+                <Button
+                  size="lg"
+                  className="bg-white text-black hover:bg-gray-100 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg button-press w-full sm:w-auto"
+                >
+                  <Calendar className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                  Reserve Your Table
+                </Button>
+              </Link>
             </motion.div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white text-white hover:bg-white hover:text-black px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg button-press w-full sm:w-auto"
-                onClick={() => router.push("/dashboard")}
-              >
-                <Search className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                Find My Reservations
-              </Button>
+              <Link href="/dashboard" className="block">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-white text-white hover:bg-white hover:text-black px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg button-press w-full sm:w-auto bg-transparent"
+                >
+                  <Search className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                  Find My Reservations
+                </Button>
+              </Link>
             </motion.div>
           </motion.div>
         </motion.div>
@@ -247,7 +247,7 @@ export default function LandingPage() {
                       >
                         <feature.icon className="h-6 w-6 sm:h-8 sm:w-8 text-coffee-600" />
                       </motion.div>
-                      <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">{feature.title}</h3>
+                      <CardTitle className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">{feature.title}</CardTitle>
                       <p className="text-xs sm:text-sm text-muted-foreground">{feature.description}</p>
                     </motion.div>
                   ))}
@@ -293,10 +293,10 @@ export default function LandingPage() {
                       Indonesia
                     </p>
                     <Link href="https://maps.app.goo.gl/2RkhjpzRBMwg1Yku8">
-                    <Button variant="outline" size="sm" className="button-press">
-                      <MapPin className="mr-2 h-4 w-4" />
-                      View on Maps
-                    </Button>
+                      <Button variant="outline" size="sm" className="button-press bg-transparent">
+                        <MapPin className="mr-2 h-4 w-4" />
+                        View on Maps
+                      </Button>
                     </Link>
                   </>
                 ),
@@ -328,24 +328,22 @@ export default function LandingPage() {
                         <Phone className="inline h-4 w-4 mr-2" />
                         <span className="font-mono">+62 822 4604 8185</span>
                       </div>
-                      <div className="flex items-center justify-center">
-                        
-                      </div>
+                      <div className="flex items-center justify-center"></div>
                     </div>
                     <div className="flex justify-center gap-3">
                       <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                      <Link href="https://www.instagram.com/kuri_slowbar195/">
-                        <Button size="sm" variant="outline" className="button-press">
-                          <Instagram className="h-4 w-4" />
-                        </Button>
-                      </Link>
+                        <Link href="https://www.instagram.com/kuri_slowbar195/">
+                          <Button size="sm" variant="outline" className="button-press bg-transparent">
+                            <Instagram className="h-4 w-4" />
+                          </Button>
+                        </Link>
                       </motion.div>
                       <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                      <Link href="">
-                        <Button size="sm" variant="outline" className="button-press">
-                          <Facebook className="h-4 w-4" />
-                        </Button>
-                      </Link>
+                        <Link href="">
+                          <Button size="sm" variant="outline" className="button-press bg-transparent">
+                            <Facebook className="h-4 w-4" />
+                          </Button>
+                        </Link>
                       </motion.div>
                     </div>
                   </>
@@ -392,55 +390,59 @@ export default function LandingPage() {
             viewport={{ once: true }}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6"
           >
-            {coffeeMenu.map((coffee, index) => (
-              <motion.div key={index} variants={itemVariants}>
-                <AnimatedCard delay={index * 0.1} className="relative overflow-hidden h-full">
-                  {coffee.popular && (
-                    <motion.div
-                      initial={{ scale: 0, rotate: -45 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ delay: 0.5 + index * 0.1 }}
-                    >
-                      <Badge className="absolute top-3 sm:top-4 right-3 sm:right-4 bg-coffee-600 text-white text-xs">
-                        Popular
-                      </Badge>
-                    </motion.div>
-                  )}
-                  {coffee.premium && (
-                    <motion.div
-                      initial={{ scale: 0, rotate: -45 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ delay: 0.5 + index * 0.1 }}
-                    >
-                      <Badge className="absolute top-3 sm:top-4 right-3 sm:right-4 bg-purple-600 text-white text-xs">
-                        Premium
-                      </Badge>
-                    </motion.div>
-                  )}
-                  <CardHeader className="text-center pb-3 sm:pb-4">
-                    <motion.div
-                      whileHover={{ scale: 1.1, rotate: 10 }}
-                      className="bg-coffee-100 dark:bg-coffee-900 rounded-full p-3 sm:p-4 w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center"
-                    >
-                      <Coffee className="h-6 w-6 sm:h-8 sm:w-8 text-coffee-600" />
-                    </motion.div>
-                    <CardTitle className="text-base sm:text-lg">{coffee.name}</CardTitle>
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      whileInView={{ scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: 0.3 + index * 0.1, type: "spring" }}
-                      className="text-xl sm:text-2xl font-bold text-coffee-600"
-                    >
-                      {coffee.price}
-                    </motion.div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <p className="text-muted-foreground text-center text-xs sm:text-sm">{coffee.description}</p>
-                  </CardContent>
-                </AnimatedCard>
-              </motion.div>
-            ))}
+            {loadingCoffee ? (
+              <p className="col-span-full text-center text-muted-foreground">Loading coffee options…</p>
+            ) : (
+              coffeeOptions.map((coffee, index) => (
+                <motion.div key={index} variants={itemVariants}>
+                  <AnimatedCard delay={index * 0.1} className="relative overflow-hidden h-full">
+                    {coffee.name.includes("Arabica") && ( // Example: check for "Arabica" to mark as popular
+                      <motion.div
+                        initial={{ scale: 0, rotate: -45 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ delay: 0.5 + index * 0.1 }}
+                      >
+                        <Badge className="absolute top-3 sm:top-4 right-3 sm:right-4 bg-coffee-600 text-white text-xs">
+                          Popular
+                        </Badge>
+                      </motion.div>
+                    )}
+                    {coffee.name.includes("Luwak") && ( // Example: check for "Luwak" to mark as premium
+                      <motion.div
+                        initial={{ scale: 0, rotate: -45 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ delay: 0.5 + index * 0.1 }}
+                      >
+                        <Badge className="absolute top-3 sm:top-4 right-3 sm:right-4 bg-purple-600 text-white text-xs">
+                          Premium
+                        </Badge>
+                      </motion.div>
+                    )}
+                    <CardHeader className="text-center pb-3 sm:pb-4">
+                      <motion.div
+                        whileHover={{ scale: 1.1, rotate: 10 }}
+                        className="bg-coffee-100 dark:bg-coffee-900 rounded-full p-3 sm:p-4 w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center"
+                      >
+                        <Coffee className="h-6 w-6 sm:h-8 sm:w-8 text-coffee-600" />
+                      </motion.div>
+                      <CardTitle className="text-base sm:text-lg">{coffee.name}</CardTitle>
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        whileInView={{ scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: 0.3 + index * 0.1, type: "spring" }}
+                        className="text-xl sm:text-2xl font-bold text-coffee-600"
+                      >
+                        Rp {coffee.price.toLocaleString("id-ID")} {/* Format price */}
+                      </motion.div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <p className="text-muted-foreground text-center text-xs sm:text-sm">{coffee.description}</p>
+                    </CardContent>
+                  </AnimatedCard>
+                </motion.div>
+              ))
+            )}
           </motion.div>
 
           <motion.div
@@ -451,14 +453,15 @@ export default function LandingPage() {
             className="text-center mt-8 sm:mt-12"
           >
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                size="lg"
-                className="bg-foreground text-background hover:bg-foreground/90 button-press px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg w-full sm:w-auto"
-                onClick={() => router.push("/reservation")}
-              >
-                Reserve & Order Now
-                <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
-              </Button>
+              <Link href="/reservation" className="block">
+                <Button
+                  size="lg"
+                  className="bg-foreground text-background hover:bg-foreground/90 button-press px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg w-full sm:w-auto"
+                >
+                  Reserve & Order Now
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
+                </Button>
+              </Link>
             </motion.div>
           </motion.div>
         </div>
@@ -566,14 +569,15 @@ export default function LandingPage() {
               className="flex flex-col sm:flex-row gap-4 justify-center"
             >
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  size="lg"
-                  className="bg-background text-foreground hover:bg-background/90 px-8 py-4 text-lg button-press"
-                  onClick={() => router.push("/reservation")}
-                >
-                  <Calendar className="mr-2 h-5 w-5" />
-                  Make Reservation
-                </Button>
+                <Link href="/reservation" className="block">
+                  <Button
+                    size="lg"
+                    className="bg-background text-foreground hover:bg-background/90 px-8 py-4 text-lg button-press"
+                  >
+                    <Calendar className="mr-2 h-5 w-5" />
+                    Make Reservation
+                  </Button>
+                </Link>
               </motion.div>
             </motion.div>
           </motion.div>
@@ -610,15 +614,15 @@ export default function LandingPage() {
               </p>
               <div className="flex gap-3">
                 <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                <Link href="https://www.instagram.com/kuri_slowbar195/">
-                  <Button size="sm" variant="outline" className="button-press">
-                    <Instagram className="h-4 w-4" />
-                  </Button>
-                </Link>
+                  <Link href="https://www.instagram.com/kuri_slowbar195/">
+                    <Button size="sm" variant="outline" className="button-press bg-transparent">
+                      <Instagram className="h-4 w-4" />
+                    </Button>
+                  </Link>
                 </motion.div>
                 <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                  <Button size="sm" variant="outline" className="button-press">
-                    <Facebook className="h-4 w-4"  />
+                  <Button size="sm" variant="outline" className="button-press bg-transparent">
+                    <Facebook className="h-4 w-4" />
                   </Button>
                 </motion.div>
               </div>
@@ -651,9 +655,7 @@ export default function LandingPage() {
                   <Phone className="h-4 w-4 mr-2" />
                   <span className="font-mono">+62 822 4604 8185</span>
                 </li>
-                <li className="flex items-center">
-                  
-                </li>
+                <li className="flex items-center"></li>
               </ul>
             </motion.div>
 

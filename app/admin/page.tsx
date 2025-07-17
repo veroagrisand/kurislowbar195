@@ -65,25 +65,47 @@ export default function AdminPage() {
     try {
       // Fetch reservations and stats
       const reservationsResponse = await fetch("/api/admin/reservations")
-      const reservationsData = await reservationsResponse.json()
+      let reservationsData
 
       if (reservationsResponse.ok) {
+        reservationsData = await reservationsResponse.json()
         setReservations(reservationsData.reservations)
         setStats(reservationsData.stats)
+      } else {
+        try {
+          reservationsData = await reservationsResponse.json()
+          throw new Error(reservationsData.error || `Server error: ${reservationsResponse.status}`)
+        } catch (jsonError) {
+          const textError = await reservationsResponse.text()
+          throw new Error(
+            `Server responded with non-JSON error from /api/admin/reservations: ${reservationsResponse.status} - ${textError}`,
+          )
+        }
       }
 
       // Fetch coffee options
       const coffeeResponse = await fetch("/api/coffee-options")
-      const coffeeData = await coffeeResponse.json()
+      let coffeeData
 
       if (coffeeResponse.ok) {
+        coffeeData = await coffeeResponse.json()
         setCoffeeOptions(coffeeData.coffeeOptions)
+      } else {
+        try {
+          coffeeData = await coffeeResponse.json()
+          throw new Error(coffeeData.error || `Server error: ${coffeeResponse.status}`)
+        } catch (jsonError) {
+          const textError = await coffeeResponse.text()
+          throw new Error(
+            `Server responded with non-JSON error from /api/coffee-options: ${coffeeResponse.status} - ${textError}`,
+          )
+        }
       }
     } catch (error) {
       console.error("Error fetching data:", error)
       toast({
         title: "Error",
-        description: "Failed to load admin data",
+        description: error instanceof Error ? error.message : "Failed to load admin data",
         variant: "destructive",
       })
     } finally {
@@ -116,11 +138,7 @@ export default function AdminPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: newCoffee.name,
-          price: newCoffee.price,
-          description: newCoffee.description,
-        }),
+        body: JSON.stringify(newCoffee),
       })
 
       const data = await response.json()
@@ -129,7 +147,6 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to add coffee option")
       }
 
-      // Add to local state
       setCoffeeOptions([...coffeeOptions, data.coffeeOption])
       setNewCoffee({ name: "", price: "", description: "" })
 
@@ -163,7 +180,6 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to update coffee option")
       }
 
-      // Update local state
       setCoffeeOptions(coffeeOptions.map((c) => (c.id === coffee.id ? data.coffeeOption : c)))
       setEditingCoffee(null)
 
@@ -196,7 +212,6 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to delete coffee option")
       }
 
-      // Remove from local state
       setCoffeeOptions(coffeeOptions.filter((c) => c.id !== id))
 
       toast({
