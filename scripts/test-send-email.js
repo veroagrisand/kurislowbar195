@@ -1,10 +1,15 @@
 async function testSendEmail() {
+  // Determine the base URL for the API endpoint
+  const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000" // Fallback for local development
+
+  const emailEndpoint = `${baseUrl}/api/send-email`
+
   const testEmailData = {
     to: "geexspublic@gmail.com", // IMPORTANT: Replace with a different email you can access and verify
-    subject: "Test Reservation Confirmation from Kuri Coffee (Re-run)",
+    subject: "Test Reservation Confirmation from Kuri Coffee (External Test)",
     body: `
       <h1>Hello from Kuri Coffee Slowbar 195!</h1>
-      <p>This is a re-test email to confirm that our email sending service is working correctly after domain verification.</p>
+      <p>This is an external re-test email to confirm that our email sending service is working correctly after domain verification.</p>
       <p>If you received this, the integration is successful!</p>
       <p>Remember to update 'transactional.kurislowbar195.tech' with your verified sender email in app/api/send-email/route.ts.</p>
       <p>Best regards,</p>
@@ -12,10 +17,10 @@ async function testSendEmail() {
     `,
   }
 
-  console.log("Sending test email...")
+  console.log(`Sending test email to ${emailEndpoint}...`)
 
   try {
-    const response = await fetch("/api/send-email", {
+    const response = await fetch(emailEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
